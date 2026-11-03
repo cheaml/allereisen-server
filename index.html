@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AlleReisen</title>
+<meta name="application-version" content="0.2.63">
+<link rel="manifest" href="./site.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<meta name="theme-color" content="#26473e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AlleReisen">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="./web-app.css?v=20260925">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css?v=20261103">
+  <link rel="stylesheet" href="./hilfe.css?v=20260923-betrachteransicht">
+<style>.login-button{display:inline-block;margin-top:30px;text-decoration:none}.trip-open{display:inline-block;margin-top:13px;font:11px "DM Mono";color:#26473e;text-decoration:underline}.day-timeline{padding:34px;background:#e3ecdf;overflow:auto}.day-timeline h2{font:500 32px "Playfair Display";margin:0 0 8px}.day-timeline p:not(.eyebrow){color:#53615a}.day-timeline-stop{width:100%;display:grid;grid-template-columns:42px 1fr;gap:14px;text-align:left;padding:15px 0;border:0;border-top:1px solid #bdcfba;background:transparent;cursor:pointer}.day-timeline-stop span,.day-timeline-stop small{font:10px "DM Mono";color:#71807a}.day-timeline-stop b{display:block;font-size:15px;margin-bottom:4px}.day-timeline-stop:hover b{color:#26473e;text-decoration:underline}</style>
+<style>.day-summary{max-width:760px;margin-top:32px;padding:25px;background:#e3ecdf}.day-summary-text{font:17px/1.65 "DM Sans";max-width:650px}.day-summary .edit-link{margin-left:16px}.day-stops-choice{max-width:760px;margin-top:35px;border-top:1px solid #d8d4ca}.day-choice-stop{width:100%;display:grid;grid-template-columns:48px 58px 1fr;gap:15px;align-items:center;padding:12px 0;text-align:left;background:transparent;border:0;border-bottom:1px solid #d8d4ca;cursor:pointer;color:#18211f}.day-choice-stop img,.day-choice-stop i{display:block;width:58px;height:58px;border-radius:50%;object-fit:cover;background:#c8dcc3}.day-choice-stop span,.day-choice-stop small{font:11px "DM Mono";color:#71807a}.day-choice-stop b{display:block;font-size:18px;margin-bottom:5px}.day-choice-stop:hover{background:#d5f054}.day-choice-stop:hover b{text-decoration:underline}</style>
+<link rel="stylesheet" href="./components.css?v=20261103-konto">
+<link rel="stylesheet" href="./trip-search.css?v=0.2.48">
+<link rel="stylesheet" href="./journey-ui.css?v=20261103">
+<link rel="stylesheet" href="./actions.css?v=20261103">
+<link rel="stylesheet" href="./control-islands.css?v=20261103"></head>
+<body>
+<div class="noise">
+</div>
+<header class="topbar">
+<a class="brand" href="#home">
+  <span>AlleReisen</span></a>
+<div class="trip-label" id="headerTitle">UNSERE URLAUBSREISEN</div>
+<nav class="main-menu" aria-label="Hauptnavigation">
+<button class="header-menu-button" id="archiveMenu" type="button">ALLE REISEN</button>
+<a class="header-menu-button online-archive-link" id="onlineArchiveMenu" hidden>ONLINE-REISEN ↗</a>
+<button class="header-menu-button" id="helpMenu" type="button" hidden>HILFE</button>
+<button class="header-menu-button" id="logoutMenu" type="button" hidden>ABMELDEN</button>
+</nav>
+</header>
+<main id="app" aria-live="polite">
+  <p class="app-loading">Reisearchiv wird geladen …</p>
+</main>
+<dialog id="loginDialog">
+<form method="dialog" class="dialog-card" id="loginForm">
+<button class="close" value="cancel">×</button>
+<p class="eyebrow">ANMELDEN</p>
+<h2>Willkommen zurück</h2>
+<label id="registerName" hidden>Name <input id="loginName" type="text" autocomplete="name"></label>
+<label>E-Mail-Adresse <input id="loginEmail" type="email" autocomplete="email" required></label>
+<label>Passwort <input id="loginPassword" type="password" autocomplete="current-password" required></label>
+<button class="primary" value="default">ANMELDEN</button>
+<button class="edit-link" type="button" id="showRegister">KONTO ERSTELLEN</button>
+<a class="edit-link" href="./api/login.php">MIT MICROSOFT ANMELDEN</a>
+<p class="connection-note" id="loginNote"></p>
+</form>
+</dialog>
+<template id="homeTemplate">
+<section class="home-page">
+<div class="home-hero">
+<p class="eyebrow">DEIN REISEARCHIV</p>
+<h1>Orte bleiben.<br>
+<em>Momente auch.</em>
+</h1>
+<p class="lede" id="homeIntro">Erstelle Reisedokus aus deinen OneDrive-Aufnahmen. Family on the road ordnet Fotos und Videos nach Ort und Zeit zu einer begehbaren Route.</p>
+<a class="web-app-install" href="./installieren.html">Auf iPhone oder iPad installieren ↗</a>
+<button class="edit-link home-intro-edit" id="editHomeIntro">STARTSEITENTEXT BEARBEITEN</button>
+<a class="primary login-button" id="loginButton" href="./login.html">ANMELDEN</a>
+<button class="primary create-button" id="createTrip">＋ NEUE REISEDOKU IMPORTIEREN</button>
+</div>
+<div class="library">
+<div class="library-head">
+<div>
+<p class="eyebrow">REISEDOKUS</p>
+<h2>Deine Geschichten</h2>
+</div>
+<span id="tripCount" class="media-count">
+</span>
+</div>
+<div class="trip-grid" id="tripGrid">
+</div>
+</div>
+</section>
+</template>
+<template id="importTemplate">
+<section class="import-page">
+<button class="back" id="cancelImport">← ZURÜCK ZUM ARCHIV</button>
+<div class="import-head">
+<p class="eyebrow">NEUE REISEDOKU</p>
+<h1>Importiere deine<br>
+<em>Erinnerungen.</em>
+</h1>
+<p class="lede">Family on the road analysiert alle Fotos und Videos in deinem OneDrive-Ordner – einschließlich aller Unterordner – nach Aufnahmezeit, Standort und Medientyp und gruppiert die Reise automatisch in Stationen.</p>
+</div>
+<div class="import-layout">
+<section class="import-card">
+<div class="step-label">01 · QUELLE</div>
+<label>Reisetitel <input id="newTripTitle" placeholder="z. B. Portugal im September">
+</label>
+<label>OneDrive-Ordnerpfad <input id="importFolder" placeholder="Reisen/Portugal 2026">
+</label>
+<label>Microsoft Graph Zugriffstoken <input id="graphToken" type="password" placeholder="Optional: Token für Live-Import">
+</label>
+<p class="hint">Mit Zugriffstoken liest Family on the road den Ordner über Microsoft Graph aus. Ohne Token wird eine Reisedoku mit Beispielstationen erstellt, die du anschließend bearbeiten kannst.</p>
+<button class="primary" id="startImport">ORDNER ANALYSIEREN</button>
+</section>
+<aside class="import-info">
+<p class="eyebrow">WAS WIRD ERKANNT?</p>
+<div>
+<b>01</b>
+<p>Aufnahmezeit und Datum aus Foto- und Video-Metadaten</p>
+</div>
+<div>
+<b>02</b>
+<p>GPS-Koordinaten, Ortsnamen und Reiseabschnitte</p>
+</div>
+<div>
+<b>03</b>
+<p>Vermutete Verkehrsmittel zwischen den Stationen</p>
+</div>
+</aside>
+</div>
+<div class="progress-box" id="progressBox" hidden>
+<span class="spinner">
+</span>
+<div>
+<b id="progressTitle">Ordner wird analysiert …</b>
+<p id="progressText">Metadaten werden ausgelesen</p>
+</div>
+</div>
+</section>
+</template>
+<template id="mapTemplate">
+<section class="map-page">
+<div class="hero-copy">
+<h1 id="tripTitle">Deine <em>Reise.</em>
+</h1>
+<p class="lede">Die Bilder, Orte und Zeiten dieser Reise erzählen ihre Geschichte.</p>
+<div class="hero-actions">
+<button class="primary" id="editTitle" hidden>Titel bearbeiten</button>
+<button class="edit-link" id="editTripIntro" hidden>EINSTIEGSTEXT BEARBEITEN</button>
+<span class="media-count">64 Fotos · 8 Videos</span>
+</div>
+</div>
+<div class="route-panel">
+<div class="route-meta">
+<span>ROUTE</span>
+<span>1.842 KM</span>
+</div>
+<svg class="route-map" viewBox="0 0 780 560">
+<path class="coast" d="M165 42 C238 23 300 55 333 106 C368 159 345 202 402 237 C460 272 519 231 571 283 C618 330 627 376 673 398 C713 419 710 467 669 499 C634 527 581 514 551 472 C518 426 471 426 438 388 C395 338 343 347 303 312 C253 268 248 228 212 190 C168 144 121 74 165 42Z"/>
+<path class="route-line" d="M282 415 C350 389 401 360 419 313 S450 219 498 180 S572 118 610 83"/>
+<g class="place" data-id="osaka">
+<circle cx="282" cy="415" r="10"/>
+<circle cx="282" cy="415" r="4"/>
+<text x="235" y="452">OSAKA</text>
+<text class="date" x="235" y="470">10. APR</text>
+</g>
+<g class="place" data-id="nara">
+<circle cx="365" cy="377" r="10"/>
+<circle cx="365" cy="377" r="4"/>
+<text x="330" y="413">NARA</text>
+<text class="date" x="330" y="431">12. APR</text>
+</g>
+<g class="place" data-id="kyoto">
+<circle cx="419" cy="313" r="11"/>
+<circle cx="419" cy="313" r="4"/>
+<text x="440" y="306">KYOTO</text>
+<text class="date" x="440" y="324">14 — 18. APR</text>
+</g>
+<g class="place" data-id="hakone">
+<circle cx="498" cy="180" r="10"/>
+<circle cx="498" cy="180" r="4"/>
+<text x="516" y="172">HAKONE</text>
+<text class="date" x="516" y="190">19. APR</text>
+</g>
+<g class="place" data-id="tokio">
+<circle cx="610" cy="83" r="11"/>
+<circle cx="610" cy="83" r="4"/>
+<text x="630" y="78">TOKIO</text>
+<text class="date" x="630" y="96">20 — 24. APR</text>
+</g>
+</svg>
+<div class="transport">
+<span>
+<b>↝</b> Zug · 1.020 km</span>
+<span>
+<b>⌁</b> Bus · 122 km</span>
+<span>
+<b>⌁</b> Fähre · 700 km</span>
+</div>
+</div>
+<aside class="stops-list">
+<p class="eyebrow">STATIONEN</p>
+<div id="stops">
+</div>
+</aside>
+</section>
+</template>
+<template id="detailTemplate">
+<section class="detail-page" id="detailPage">
+</section>
+</template>
+<script src="./login-fallback.js?v=20260909-2320"></script>
+<script src="./station-media-cache.js?v=20261103"></script>
+<script src="./api-client.js?v=20261007-sources"></script>
+<script src="./media-importer.js?v=20261026-folder-tree"></script>
+<script src="./station-actions.js?v=0.2.27"></script>
+<script src="./manual-routes.js?v=20261009"></script>
+<script src="./reise-icons.js?v=0.2.48"></script>
+<script src="./journey-ui.js?v=20261026-flat-map-11"></script>
+<script src="./trip-search.js?v=0.2.48"></script>
+<script src="./trip-review-ui.js?v=20261020"></script>
+<script src="./import-permissions-ui.js?v=20261101-pending-import"></script>
+<script src="./app.js?v=20261103-rechte">
+</script>
+<script src="./app-updates.js?v=20261002-1"></script>
+</body>
+</html>
+
+
+
+

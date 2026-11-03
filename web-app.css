@@ -1,0 +1,12 @@
+/* Installed apps keep the browser's default safe-area insets (no viewport-fit=cover). */
+.web-app-install{display:block;width:fit-content;margin:18px 0;color:#26473e;font:14px/1.5 "DM Sans",sans-serif;text-underline-offset:4px;padding:10px 0}
+.install-page{max-width:680px;margin:0 auto;padding:40px 24px 64px;color:#18211f;font:17px/1.65 system-ui,sans-serif}
+.install-page h1{font:600 clamp(30px,7vw,44px)/1.15 system-ui,sans-serif;letter-spacing:-.03em;margin:24px 0}
+.install-page h2{font-size:22px;margin-top:32px}
+.install-page li{margin:14px 0;padding-left:4px}
+.install-page a{color:#26473e;text-underline-offset:4px}
+.install-page .install-icon{display:block;width:88px;height:88px;border-radius:20px;margin-top:32px}
+.install-page .install-note{background:#e3ecdf;border-radius:12px;padding:20px}
+.install-page .install-back{display:inline-block;padding:10px 0}
+@media(display-mode:standalone){.web-app-install{display:none}body{padding-bottom:env(safe-area-inset-bottom,0px)}}
+@media(pointer:coarse){input,select,textarea{font-size:16px!important}.header-menu-button{min-height:44px}}

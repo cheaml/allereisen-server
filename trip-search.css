@@ -1,0 +1,17 @@
+.trip-search { display:grid; grid-template-columns:minmax(180px,2fr) minmax(110px,1fr) minmax(160px,1.5fr) auto; align-items:end; gap:16px; margin:0 0 28px; padding:20px; border:1px solid var(--line); border-radius:18px; background:var(--paper); }
+.trip-search label { display:grid; gap:8px; min-width:0; color:var(--pine); font:14px var(--font-body),sans-serif; }
+.trip-search input,.trip-search select { box-sizing:border-box; width:100%; min-width:0; min-height:46px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff9; color:var(--ink); font:16px var(--font-body),sans-serif; }
+.trip-search button { min-height:46px; white-space:nowrap; }
+.trip-search input:focus-visible,.trip-search select:focus-visible { outline:2px solid var(--pine); outline-offset:2px; }
+.trip-search-results { margin:-12px 0 24px; color:var(--muted); font:14px var(--font-body),sans-serif; }
+.map-options-dialog .trip-search { display:grid; grid-template-columns:1fr; padding:0; margin:0; border:0; background:transparent; gap:12px; }
+.map-options-dialog .trip-search input { margin:0; }
+.world-search-status { position:absolute; top:16px; right:16px; z-index:800; max-width:calc(100% - 100px); padding:10px 14px; border-radius:14px; background:var(--paper); color:var(--pine); box-shadow:0 4px 16px #102d2325; font:14px var(--font-body),sans-serif; pointer-events:none; }
+.admin-account-row > span { display:block; overflow-wrap:anywhere; margin-bottom:12px; }
+@media(max-width:700px) { .trip-search { grid-template-columns:1fr 1fr; gap:12px; padding:16px; } .trip-search label:first-child { grid-column:1/-1; } .trip-search button { grid-column:1/-1; } }
+@media(max-width:380px) { .trip-search { grid-template-columns:1fr; } }
+
+.trip-card[hidden] { display:none!important; }
+
+.trip-pending { color:#775018!important; font-weight:600!important; }
+.trip-review .admin-account-row { display:grid; gap:12px; align-content:start; }

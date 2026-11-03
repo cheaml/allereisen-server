@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS trip_day_summaries (
+  trip_id CHAR(36) NOT NULL,
+  day_date DATE NOT NULL,
+  summary TEXT NOT NULL,
+  photo_media_id CHAR(36) NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (trip_id, day_date),
+  CONSTRAINT fk_day_summaries_trip FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

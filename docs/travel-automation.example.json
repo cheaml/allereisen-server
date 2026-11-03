@@ -1,0 +1,17 @@
+{
+  "enabled": false,
+  "cleanupEnabled": false,
+  "ownerEmail": "bitte-ersetzen@example.invalid",
+  "sourceFolder": "Photos/Eigene Aufnahmen",
+  "targetFolder": "Reisen",
+  "home": {"latitude": null, "longitude": null},
+  "radiusKm": 30,
+  "timezone": "Europe/Vienna",
+  "startAt": null,
+  "backfillFrom": null,
+  "exiftool": "/ABSOLUTER/PRIVATER/PFAD/exiftool",
+  "perl": "/usr/bin/perl",
+  "scanItemsPerRun": 2000,
+  "mediaPerRun": 10,
+  "maxRunSeconds": 480
+}

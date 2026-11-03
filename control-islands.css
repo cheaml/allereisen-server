@@ -1,0 +1,21 @@
+/* Shared web/iOS/Windows/Android control islands. Keep photos and maps colourful. */
+:root{--island-background:#686868;--island-active:#454545;--island-hover:#555555;--island-text:#ffffff;--island-border:#ffffff60}
+:is(.journey-nav,.native-journey-nav,.journey-more[open],.native-journey-more[open]),html body .media-lightbox.media-lightbox :is(.media-slide-controls,.media-bottom-dock,.media-playback-island,.media-zoom-island,.media-map-corner,.media-lightbox-close,.media-lightbox-nav,.media-status-island){background:var(--island-background)!important;color:var(--island-text)!important;border-color:var(--island-border)!important}
+:is(.journey-nav,.native-journey-nav) :is(button,summary),html body .media-lightbox.media-lightbox :is(.media-slide-controls,.media-bottom-dock,.media-playback-island,.media-zoom-island) :is(button,select,label){background:transparent!important;color:var(--island-text)!important}
+:is(.journey-nav,.native-journey-nav) :is(button,summary):hover,html body .media-lightbox.media-lightbox :is(button,select):hover{background:var(--island-hover)!important}
+:is(.journey-nav,.native-journey-nav) :is(button,summary):focus-visible,html body .media-lightbox.media-lightbox :is(button,select):focus-visible{outline:3px solid white!important;outline-offset:2px}
+.journey-nav .journey-action[aria-current=page],.native-journey-nav>button[aria-current=page],:is(.journey-more,.native-journey-more) .native-icon-button[aria-pressed=true],.media-lightbox .media-slide-controls .native-icon-button[aria-pressed=true]{background:var(--island-active)!important;color:var(--island-text)!important}
+.media-lightbox .media-photo-duration option{background:var(--island-background);color:var(--island-text)}
+:is(.journey-editing,.native-editing-badge){background:var(--island-active)!important;color:var(--island-text)!important}
+.archive-status-row span{overflow-wrap:anywhere}
+/* Map buttons shrink towards their existing corner; station symbols retain their size. */
+.leaflet-control-zoom,.apple-map-zoom{transform:scale(.7);transform-origin:top left}
+.leaflet-right .leaflet-control-zoom{transform-origin:top right}
+.leaflet-bottom .leaflet-control-zoom{transform-origin:bottom left}
+.leaflet-bottom.leaflet-right .leaflet-control-zoom{transform-origin:bottom right}
+/* File information stays below the playback menu in both orientations. */
+.media-lightbox .media-video-status{position:absolute;z-index:3000;top:50%;bottom:auto;left:max(16px,var(--native-safe-left,0px));right:max(16px,var(--native-safe-right,0px));transform:translateY(-50%);padding:16px;border-radius:12px;background:#18211ff2;color:#fff;text-align:center;white-space:pre-wrap;pointer-events:none}
+.media-lightbox.island-slideshow figure.media-day-backdrop{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;z-index:0;pointer-events:none}
+.media-lightbox.island-slideshow figure.media-day-backdrop :is(img,video){width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;opacity:.55}
+ html body .media-lightbox.island-slideshow figure figcaption{left:50%!important;right:auto!important;bottom:calc(0px + max(env(safe-area-inset-bottom),var(--native-safe-bottom,0px)))!important;transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px - max(env(safe-area-inset-left),var(--native-safe-left,0px)) - max(env(safe-area-inset-right),var(--native-safe-right,0px)));box-sizing:border-box;margin:0;padding:1px 6px!important;font:11px/14px system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:4px;background:#0008;color:#fff;pointer-events:none;z-index:15}
+ html body .media-lightbox.island-slideshow>.media-playback-island,html body .media-lightbox.island-slideshow>.media-status-island{bottom:calc(18px + max(env(safe-area-inset-bottom),var(--native-safe-bottom,0px)))!important}

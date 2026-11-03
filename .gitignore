@@ -1,0 +1,7 @@
+# Zugangsdaten und Laufzeitdaten gehören nie ins Repository.
+api/config.php
+api/cache/*
+!api/cache/.htaccess
+*.log
+.env
+.DS_Store

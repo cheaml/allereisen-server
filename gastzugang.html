@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gastzugang · AlleReisen</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="manifest" href="./site.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<meta name="theme-color" content="#26473e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AlleReisen">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="./web-app.css?v=20260925">
+<main class="detail-page" style="max-width:620px;margin:auto">
+<h1 style="margin-top:42px">Gastzugang</h1>
+<p class="lede">Deine Reise wurde bereits für deine E-Mail-Adresse freigegeben? Fordere hier einen neuen einmaligen Anmeldelink an.</p>
+<p id="sentNote" class="connection-note" hidden>Wenn für diese Adresse eine Reise freigegeben ist, wurde ein Anmeldelink versendet. Bitte prüfe dein Postfach.</p>
+<p id="contactNote" class="connection-note" role="alert" style="color:#b42318" hidden>Für diese E-Mail-Adresse kann kein Anmeldelink versendet werden. Bitte wende dich an deine Kontaktperson für diese Seite, damit sie deinen Gastzugang prüft.</p>
+<form action="./api/auth.php" method="post" class="dialog-card" style="margin-top:18px">
+<input type="hidden" name="action" value="request-link">
+<label>E-Mail-Adresse <input name="email" type="email" autocomplete="email" required></label>
+<button class="primary" type="submit">ANMELDELINK SENDEN</button>
+</form>
+<script src="./gastzugang.js" defer></script>
+<a class="web-app-install" href="./installieren.html">Auf iPhone oder iPad installieren ↗</a>
+</main>

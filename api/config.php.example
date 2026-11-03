@@ -1,0 +1,36 @@
+<?php
+// Diese Datei als config.php kopieren und ausschließlich auf dem Zielsystem ausfüllen.
+// config.php darf nicht in Git, Backups von Quellcode oder öffentliche Uploads gelangen.
+return [
+  'db_dsn' => 'mysql:host=localhost;dbname=DATABASE;charset=utf8mb4',
+  'db_user' => 'DATABASE_USER',
+  'db_password' => 'CHANGE_ME',
+  'app_url' => 'https://example.invalid',
+  // Bei Bedarf auf einen anderen kompatiblen Nominatim-Dienst umstellen.
+  'nominatim_reverse_url' => 'https://nominatim.openstreetmap.org/reverse',
+  // Für kommerzielle Installationen erst nach Einrichtung eines geeigneten Tarifs aktivieren.
+  'weather_enabled' => false,
+  'weather_forecast_url' => 'https://customer-api.open-meteo.com/v1/forecast',
+  'weather_archive_url' => 'https://customer-archive-api.open-meteo.com/v1/archive',
+  'weather_api_key' => '',
+  // Optional: eigene Gemini-Konfiguration und verfügbare Modellnamen.
+  'gemini_api_key' => '',
+  'gemini_model' => '',
+  'gemini_fallback_model' => '',
+  'admin_emails' => ['admin@example.invalid'],
+  // Optional: Heimort in Dezimalgrad. Auf der Weltkarte steht der Reisename an der
+  // Station, die am weitesten davon entfernt ist. Ohne Angabe (null): an der Station,
+  // die am weitesten von der ersten Station der Reise entfernt ist.
+  // Beispiel: 'home_location' => ['latitude' => 48.2082, 'longitude' => 16.3738],
+  'home_location' => null,
+  // Dropbox OAuth callback: app_url + /api/dropbox.php
+  'dropbox_client_id' => '',
+  'dropbox_client_secret' => '',
+  'microsoft_client_id' => 'MICROSOFT_APPLICATION_ID',
+  'microsoft_client_secret' => 'MICROSOFT_CLIENT_SECRET',
+  // Einmalig erzeugen: openssl rand -hex 32
+  'encryption_key' => '64_HEX_CHARACTERS_FROM_OPENSSL_RAND',
+  // Optional: existierende private JSON-Datei außerhalb des Document Root.
+  // Erst nach Einrichtung gemäß docs/FOTOAUTOMATIK.md setzen.
+  'travel_automation_settings_file' => null,
+];
