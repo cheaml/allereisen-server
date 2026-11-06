@@ -24,7 +24,9 @@ function sync_distance(array $a,array $b): ?float {
   $h=sin($dLat/2)**2+cos(deg2rad((float)$a['latitude']))*cos(deg2rad((float)$b['latitude']))*sin($dLon/2)**2;
   return 12742*asin(min(1,sqrt($h)));
 }
-function sync_addition_plan(array $existing,array $items,callable $newId): array {
+/** Media join a station of the same day within $radiusKm (default 1 km). */
+function sync_addition_plan(array $existing,array $items,callable $newId,float $radiusKm=1.0): array {
+  if(!is_finite($radiusKm)||$radiusKm<0.05||$radiusKm>50)throw new InvalidArgumentException('invalid_station_radius');
   usort($items,static fn($a,$b)=>strcmp(media_capture_date($a)??'9999',media_capture_date($b)??'9999')?:strcmp($a['id'],$b['id']));
   $stops=array_column($existing,null,'id');$new=[];$media=[];
   foreach($items as $item){
@@ -33,7 +35,7 @@ function sync_addition_plan(array $existing,array $items,callable $newId): array
     $target=null;$best=INF;
     foreach($stops as $id=>$stop){
       if(($stop['starts_at']?substr($stop['starts_at'],0,10):null)!==$day)continue;
-      $distance=sync_distance($location,$stop);if($distance!==null&&$distance>1)continue;
+      $distance=sync_distance($location,$stop);if($distance!==null&&$distance>$radiusKm)continue;
       // Multiple visits to a place on the same day use the closest time range.
       $gap=$taken&&$stop['starts_at']?max(0,strtotime($stop['starts_at'])-strtotime($taken),strtotime($taken)-strtotime($stop['ends_at']??$stop['starts_at'])):0;
       $score=$gap+($distance??0)*60;

@@ -12,9 +12,9 @@ function automation_oauth_finish(PDO $db,array $config):never
         if(isset($_GET['error']))throw new RuntimeException('Microsoft-Freigabe abgebrochen.');
         $code=(string)($_GET['code']??'');if($code==='')throw new RuntimeException('Microsoft hat keinen Freigabecode geliefert.');
         $ch=curl_init('https://login.microsoftonline.com/common/oauth2/v2.0/token');
-        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>http_build_query(['client_id'=>$config['microsoft_client_id'],'client_secret'=>$config['microsoft_client_secret'],'grant_type'=>'authorization_code','code'=>$code,'redirect_uri'=>rtrim($config['app_url'],'/').'/api/callback.php','code_verifier'=>$pending['verifier'],'scope'=>'openid profile offline_access User.Read Files.ReadWrite']),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);
+        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>http_build_query(['client_id'=>$config['microsoft_client_id'],'client_secret'=>$config['microsoft_client_secret'],'grant_type'=>'authorization_code','code'=>$code,'redirect_uri'=>rtrim($config['app_url'],'/').'/api/callback.php','code_verifier'=>$pending['verifier'],'scope'=>automation_oauth_scope(($pending['selectedFolders']??false)===true)]),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);
         $body=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);$token=json_decode((string)$body,true);
-        if($status!==200||empty($token['access_token'])||empty($token['refresh_token'])||!in_array('Files.ReadWrite',explode(' ',(string)($token['scope']??'')),true))throw new RuntimeException('Microsoft hat die Schreibfreigabe nicht bestätigt.');
+        if($status!==200||empty($token['access_token'])||empty($token['refresh_token'])||!automation_oauth_granted((string)($token['scope']??''),($pending['selectedFolders']??false)===true))throw new RuntimeException('Microsoft hat die Freigabe nicht bestätigt.');
         $get=static function(string $path)use($token):array{$ch=curl_init('https://graph.microsoft.com/v1.0/'.$path);curl_setopt_array($ch,[CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$token['access_token']],CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_TIMEOUT=>15]);$body=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);if($status!==200)throw new RuntimeException('OneDrive-Konto oder Photos nicht erreichbar.');return json_decode((string)$body,true,64,JSON_THROW_ON_ERROR);};
         $me=$get('me?$select=id');$q=$db->prepare('SELECT microsoft_id FROM users WHERE id=?');$q->execute([$owner]);$expected=$q->fetchColumn();
         try{$q=$db->prepare("SELECT account_id FROM media_source_connections WHERE user_id=? AND provider='onedrive'");$q->execute([$owner]);$expected=$q->fetchColumn()?:$expected;}catch(PDOException $e){if(($e->errorInfo[1]??null)!==1146)throw $e;}
@@ -23,7 +23,7 @@ function automation_oauth_finish(PDO $db,array $config):never
         if($selected){
             require_once __DIR__.'/travel-automation-scope.php';$drive=$get('me/drive?$select=id');$photos=$get('me/drive/root?$select=id,name,folder,root,parentReference,remoteItem');
             if(empty($drive['id'])||isset($photos['parentReference']['driveId'])&&$photos['parentReference']['driveId']!==$drive['id'])throw new RuntimeException('Drive identity mismatch.');
-            $photos['parentReference']['driveId']=$drive['id'];new TravelOneDriveScope($photos,'','Reisen');
+            $photos['parentReference']['driveId']=$drive['id'];new TravelOneDriveScope($photos,'');
         }else{$photos=$get('me/drive/root:/Photos?$select=id,name,folder,parentReference,remoteItem');$scope=new PhotosOneDriveScope($photos);$scope->assertAllowed([$photos],true);}
         $iv=random_bytes(12);$cipher=openssl_encrypt($token['refresh_token'],'aes-256-gcm',hex2bin($config['encryption_key']),OPENSSL_RAW_DATA,$iv,$tag);
         if($cipher===false)throw new RuntimeException('Die Verbindung konnte nicht sicher gespeichert werden.');

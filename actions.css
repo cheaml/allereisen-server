@@ -1,0 +1,139 @@
+/* One action-control appearance for the website and native web surface. */
+:root body :is(.primary, .edit-link, a.trip-open, .admin-trip-actions > a, .header-menu-button, .archive-menu-button, .source-button, .create-button, .trip-geocode-button, .pager button, .day-pager button, .menu-action button),
+:root body :is(.library-page, .connections-page, .native-settings, .help-page, .import-page, .station-management, dialog) > button,
+:root body .native-save-status :is(button, a) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px !important;
+  padding: 10px 14px !important;
+  border: 1px solid var(--action, var(--pine, #26473e)) !important;
+  border-radius: 12px !important;
+  background: var(--paper, #f4f0e8) !important;
+  color: var(--action, var(--pine, #26473e)) !important;
+  font: 600 14px/1.35 var(--font-body, system-ui), sans-serif !important;
+  text-decoration: none !important;
+  text-align: center;
+  white-space: normal;
+  cursor: pointer;
+}
+:root body .primary.primary { background: var(--action, var(--pine, #26473e)) !important; color: var(--paper, #f4f0e8) !important; }
+:root body :is(.primary, .edit-link, a.trip-open, .admin-trip-actions > a, .header-menu-button, .archive-menu-button, .source-button, .create-button, .trip-geocode-button, .pager button, .day-pager button, .menu-action button):hover:not(:disabled),
+:root body .native-save-status :is(button, a):hover { box-shadow: inset 0 0 0 2px #278e9750; }
+:root body :is(button, a.edit-link, a.primary, a.trip-open, summary):focus-visible { outline: 3px solid #278e97; outline-offset: 3px; }
+:root body :is(button, a.edit-link, a.primary, a.trip-open):disabled { opacity: .5; cursor: default; }
+:root body :is(button, a, summary)[hidden] { display: none !important; }
+
+/* Disclosure actions have the same visible frame, on both platforms. */
+:root body :is(.trip-management, .trip-management-section, .native-sync-trip, .native-sync-backups, .native-sync-history, .website-difference) > summary {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid var(--line, #9baa9e);
+  border-radius: 12px;
+  background: var(--paper, #f4f0e8);
+  color: var(--action, var(--pine, #26473e));
+  font: 600 14px/1.35 var(--font-body, system-ui), sans-serif;
+  cursor: pointer;
+}
+:root body :is(.journey-nav .journey-action, .native-journey-nav > button, .journey-more > summary, .native-journey-more > summary, .native-journey-more > button) {
+  border: 1px solid var(--line, #9baa9e) !important;
+  background: var(--paper, #f4f0e8);
+}
+:root body :is(.journey-nav .journey-action, .native-journey-nav > button)[aria-current=page],
+:root body :is(.journey-nav .journey-action, .native-journey-nav > button)[aria-pressed=true] {
+  background: var(--pine, #26473e);
+  color: var(--paper, #f4f0e8);
+}
+
+/* Shared sage surfaces and form fields. */
+:root { --surface-green: #e5e5e5; --field-green: #ededed; --line-green: #bcbcbc; }
+body:has(#app > :is(.station-page,.detail-page,.help-page,.library-page,.native-settings,.connections-page,.map-page)):not(.media-slideshow-open) { background: var(--surface-green); }
+#app > :is(.station-page,.detail-page,.help-page,.library-page,.native-settings,.connections-page,.map-page) { --paper: var(--surface-green); --line: var(--line-green); background: var(--surface-green); }
+:root body :is(.native-sync-dialog,.native-publish-dialog,.map-options-dialog,.journey-days-dialog,.native-days-dialog,.apple-route-dialog,.native-save-status) { --paper: var(--surface-green); --line: var(--line-green); background: var(--surface-green); color: #26473e; }
+:root body :is(.library-page,.connections-page,.native-settings,.station-page,.detail-page,.import-card,.native-sync-dialog,.native-publish-dialog) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=button]):not([type=submit]),textarea,select) {
+  background: var(--field-green) !important;
+  border-color: var(--line-green) !important;
+  color: #26473e !important;
+  caret-color: #26473e;
+}
+:root body .journey-day-card { background: var(--field-green); border-color: #bfd3c2; color: #26473e; }
+:root body .journey-day-card[aria-current] { background: #dcebdc; border-color: #557b62; }
+:root body .unified-day-page .station-note-section { background: #e2eee3; border-color: var(--line-green); }
+
+/* Images and maps carry the colour; reading surfaces and controls stay neutral. */
+:root body :is(.journey-day-card,.unified-day-page .station-note-section) { background:#dedede; border-color:#bcbcbc; color:#303030; }
+:root body .journey-day-card[aria-current] { background:#cecece; border-color:#777; }
+:root body :is(.library-page,.connections-page,.native-settings,.station-page,.detail-page,.import-card,.native-sync-dialog,.native-publish-dialog) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=button]):not([type=submit]),textarea,select) { color:#303030!important; caret-color:#303030; }
+:root body .media-lightbox :is(.media-playback-island,.media-status-island,.media-zoom-island,.media-lightbox-close,.media-lightbox-nav,.media-map-corner) {
+  background:#363636e8!important; color:#e0e0e0!important; border:1px solid #888!important; border-radius:20px!important; box-shadow:0 4px 20px #0004;
+}
+:root body .media-lightbox :is(.media-playback-island,.media-zoom-island) button { background:transparent!important; color:#e0e0e0!important; border:0!important; }
+:root body .media-lightbox .media-photo-duration { background:transparent!important; color:#e0e0e0!important; }
+:root body .media-lightbox .media-photo-duration option { background:#363636; color:#e0e0e0; }
+:root body .media-lightbox .media-slide-story:not(.media-slide-end) { background:#3a3a3ae8!important; color:#e0e0e0!important; border:1px solid #888; border-radius:12px; }
+:root body .media-lightbox .media-slide-story::before { display:none!important; }
+:root body .media-lightbox .media-slide-story :is(h2,p,.media-slide-story-copy,.day-weather-values) { color:#e0e0e0; }
+:root body .media-day-date { top:50%; left:50%; transform:translate(-50%,-50%); background:#363636e8; color:#e0e0e0; white-space:pre-line; pointer-events:none; animation-duration:3s; }
+:root body:is(.native-ios,.native-android) .media-lightbox > .media-lightbox-nav { display:none!important; }
+:root body:not(.native-ios) .media-lightbox :is(.media-station-intro-map,.media-slide-day-map,.media-slide-day-map.media-slide-day-map-full) {
+  top:auto!important; left:auto!important; right:calc(12px + var(--app-safe-right,env(safe-area-inset-right)))!important; bottom:calc(12px + var(--app-safe-bottom,env(safe-area-inset-bottom)))!important;
+  z-index:10!important; transform:none!important; width:min(416px,calc(100% - 32px)); height:min(286px,36dvh);
+}
+.journey-day-metrics { font:600 14px/1.5 var(--font-body,system-ui); white-space:pre-line; }
+:root body .media-lightbox .media-lightbox-nav.next-page:not(:has(svg))::after { content:none!important; }
+:root body .media-lightbox .media-lightbox-nav:not(:has(svg)) { font-size:28px!important; }
+
+/* Reading panels stay below camera/notch and above the image, on every platform. */
+.media-lightbox {
+  --reading-safe-top:var(--app-safe-top,env(safe-area-inset-top,0px));
+  --reading-safe-bottom:var(--app-safe-bottom,env(safe-area-inset-bottom,0px));
+  --reading-safe-left:var(--app-safe-left,env(safe-area-inset-left,0px));
+  --reading-safe-right:var(--app-safe-right,env(safe-area-inset-right,0px));
+}
+@media (max-width:600px) and (orientation:portrait) {
+  .native-ios .media-lightbox { --reading-safe-top:max(var(--app-safe-top,0px),env(safe-area-inset-top,0px),60px); }
+}
+@media (max-height:600px) and (orientation:landscape) {
+  .native-ios .media-lightbox { --reading-safe-left:max(var(--app-safe-left,0px),env(safe-area-inset-left,0px),60px); --reading-safe-right:max(var(--app-safe-right,0px),env(safe-area-inset-right,0px),60px); }
+}
+:root body .media-lightbox :is(.media-day-date,.media-slide-story:not(.media-slide-end)) {
+  box-sizing:border-box; top:calc(var(--reading-safe-top) + 30px)!important; bottom:auto!important;
+  left:50%!important; right:auto!important; transform:translateX(-50%)!important;
+  width:min(960px,calc(100% - var(--reading-safe-left) - var(--reading-safe-right) - 32px))!important;
+  max-height:max(100px,calc(100dvh - var(--reading-safe-top) - var(--reading-safe-bottom) - 122px))!important;
+  margin:0; padding:16px 20px; overflow:auto; text-align:center;
+}
+:root body .media-lightbox .media-slide-story:not(.media-slide-end) { display:flex; flex-direction:column; gap:10px; }
+:root body .media-lightbox .media-slide-story-copy { min-height:0; max-height:none; overflow:visible; }
+/* Scroll the complete reading panel; shrinking the copy lets its text paint
+   underneath the following distance and step rows on short landscape screens. */
+:root body .media-lightbox .media-slide-story:not(.media-slide-end) > * { flex-shrink:0; }
+:root body .media-lightbox .media-reading-hint { order:10; font:12px/1.4 var(--font-body,system-ui); opacity:.85; margin:0; }
+:root body .native-save-status[data-state=uploading] { border-color:#777; }
+:root body .native-save-status[data-state=pending] { border-color:#996a14; }
+:root body .native-save-status[data-state=conflict] { border-color:#a34242; }
+:root body .native-save-status > strong { flex:1 0 100%; font-size:15px; }
+
+/* Compact slideshow close control, with a full touch target on every platform. */
+:root body .media-lightbox > .media-lightbox-close {
+  box-sizing:border-box; width:44px!important; min-width:44px!important;
+  height:44px!important; min-height:44px!important; padding:0!important;
+  border-radius:16px!important; font-size:26px!important; line-height:1!important;
+  display:grid; place-items:center;
+}
+
+.admin-account-form { margin-top:20px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
+.admin-account-form[hidden] { display:none!important; }
+.admin-account-form label { display:grid; gap:8px; flex:1 1 260px; }
+.admin-account-form input { box-sizing:border-box; width:100%; padding:12px; }
+.admin-account-form p { flex:1 0 100%; line-height:1.6; }
+.admin-account-row { overflow-wrap:anywhere; }
+
+/* Keep reading islands compact and free of the photo zoom controls. */
+:root body .media-lightbox .media-slide-story:not(.media-slide-end) { gap:8px; }
+:root body .media-lightbox .media-slide-story .journey-day-metrics { margin:0; }
+:root body .media-lightbox .media-slide-story h2 { margin:0; }
+.media-lightbox:has(.media-slide-story:not(.media-slide-end)) > .media-zoom-island { visibility:hidden!important; pointer-events:none!important; }

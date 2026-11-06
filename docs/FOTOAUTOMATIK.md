@@ -1,6 +1,6 @@
 # Allgemeine OneDrive-Fotoautomatik
 
-Die optionale Automatik findet Reiseaufnahmen in einem selbst gewählten OneDrive-Ordner und seinen Unterordnern. Sie benötigt einen eingerichteten Server, dessen Microsoft-Administrator Zugriff auf das persönliche OneDrive hat. Die normale Website und die Apps funktionieren auch ohne diese Automatik.
+Die optionale Automatik findet Reiseaufnahmen in einem selbst gewählten OneDrive-Ordner und seinen Unterordnern und fasst sie zu Reisen zusammen. **Deine Originale bleiben, wo sie sind:** Die Automatik kopiert, verschiebt, benennt und löscht keine Dateien. Sie prüft jedes Original (Version und SHA-256) und vermerkt im Reisekatalog nur, welche Datei zu welcher Reise gehört – wie der Import in den Apps. Sie benötigt einen eingerichteten Server, dessen Microsoft-Administrator Zugriff auf das persönliche OneDrive hat. Die normale Website und die Apps funktionieren auch ohne diese Automatik.
 
 ## Deine Einstellungen
 
@@ -9,7 +9,11 @@ Die optionale Automatik findet Reiseaufnahmen in einem selbst gewählten OneDriv
 | Überwachter Ordner | Kamera-Upload-Ordner, z. B. `Photos/Eigene Aufnahmen`; jeder eigene OneDrive-Ordner ist wählbar, z. B. `Bilder/Kamera`. Unterordner zählen mit. Ein leerer Pfad bezeichnet die eigene OneDrive-Wurzel. |
 | Heimatpunkt | Eigene bestätigte Breiten-/Längengrade. Keine Adresse wird automatisch an einen Geocoder geschickt. |
 | Mindestentfernung | 30 km Luftlinie; änderbar. Genau auf der Grenze zählt eine Aufnahme noch als Heimat. |
-| Zielordner | `Reisen`, änderbar, z. B. `Bilder/Urlaubsreisen`. Dieser Ordner und bereits verwendete Automatikziele werden nicht überwacht. Der Quellordner darf nicht innerhalb eines Zielordners liegen. |
+| Weitere Heimatorte | Optional bis zu 5 (auf der Seite 3), z. B. Zweitwohnsitz, Arbeitsort, Eltern. Im selben Radius zählen Aufnahmen wie zu Hause. |
+| Stationsgröße | 1 km (Standard). 300 m für Städtereisen, 2 km für Wandern, 5 km für Roadtrips: Fotos desselben Tages in dieser Entfernung bilden eine Station. |
+| Funkstille | Aus (Standard). Sonst endet eine Reise nach 2, 3, 5 oder 7 Tagen ohne Reisefoto; das nächste Reisefoto beginnt eine neue Reise. |
+| Kurzer Heimataufenthalt | Aus (Standard). Sonst bleibt es eine Reise, wenn es nach höchstens 12, 24 oder 48 Stunden zu Hause weitergeht. |
+| Kleinere Fotos | Aus (Standard): nur Kameraaufnahmen. Ein: auch kleinere Fotos und Fotos ohne Ortsangabe, z. B. aus WhatsApp (siehe unten). |
 | Zeitzone | `Europe/Vienna`, änderbar; bestimmt die nächtliche Aufnahmegrenze. |
 
 Die bisherige persönliche Automatik ist ein anderer Worker mit eigenen Regeln und separater Verbindung. Beide dürfen nicht gleichzeitig dieselben Quellen bearbeiten. Diese Anleitung richtet ausschließlich die allgemeine Automatik ein.
@@ -17,13 +21,15 @@ Die bisherige persönliche Automatik ist ein anderer Worker mit eigenen Regeln u
 ## So werden Reisen erkannt
 
 - Maßgeblich sind Aufnahmezeit und Aufnahme-GPS aus den Originalmetadaten, niemals Upload- oder Dateiänderungszeit. Eine eindeutige Zeitzonenangabe ist erforderlich.
-- Fotos benötigen **mehr als 2.000 Pixel an beiden Seiten**. Videos benötigen mindestens **1.920 × 1.080 Pixel**, auch im Hochformat. Keine Beschränkung auf Apple/iPhone. Bildschirmaufnahmen werden ausgeschlossen.
-- Eine passende Aufnahme außerhalb des Heimatradius beginnt eine Reise. Der erste erkannte Aufnahmeort bestimmt zunächst Unterordner `Ort YYYY-MM` und Reisetitel `Ort YYYY`. Für die Benennung gilt das im Foto aufgezeichnete lokale Aufnahmedatum. Der Ortsname wird aus mitgelieferten Kartendaten bestimmt, ohne GPS an einen externen Dienst zu senden. Ohne geeigneten Ort lautet er `Reise`.
-- Die Reise läuft über Tageswechsel, Monate und beliebig lange Aufnahmeunterbrechungen weiter. Erst eine Aufnahme **innerhalb des Heimatradius**, die ebenfalls ihre Mindestauflösung erfüllt, beendet sie. Diese Aufnahme bleibt im Quellordner. Videos werden wie die ebenfalls aufgenommenen Fotos berücksichtigt, wenn Zeit, GPS und Mindestauflösung vorliegen.
-- Die nächste passende Außenaufnahme beginnt eine neue Reise. Bei gleichem Ort/Monat entstehen `Ort YYYY-MM (2)`, `(3)` usw.; vorhandene fremde Ordner werden nicht übernommen oder überschrieben.
-- Titel und Ordnername einer bereits angelegten Reise bleiben stabil. Einen Reisetitel kannst du in der Website ändern; Folgeimporte überschreiben ihn nicht.
-- Fehlende GPS-Daten, Aufnahmezeit, Auflösung oder mehrdeutige Metadaten ergeben einen Prüffall. Eine solche Aufnahme gilt nicht als nachgewiesenes Heimatfoto.
-- Verspätete Uploads werden anhand ihrer Aufnahmezeit eingeordnet. Würde ein nachträgliches Heimatfoto bereits zugeordnete Reisen teilen, hält die Automatik betroffene Übertragungen und Quellenbereinigungen an und meldet einen Prüffall. Sie verschiebt keine bereits importierten Fotos heimlich in andere Reisen. Gleichzeitige widersprüchliche Heimat-/Außenaufnahmen sind ebenfalls Prüffälle.
+- Standardmäßig zählen nur Kameraaufnahmen: Fotos mit **mehr als 2.000 Pixeln an beiden Seiten**, Videos ab **1.920 × 1.080 Pixeln**, auch im Hochformat. Keine Beschränkung auf Apple/iPhone. Bildschirmaufnahmen werden immer ausgeschlossen.
+- Mit der Option **„Auch kleinere Fotos und Fotos ohne Ortsangabe“** (`smallPhotos`) zählen auch kleinere Fotos und Videos, z. B. aus WhatsApp. Mit Ortsangabe werden sie wie Kameraaufnahmen eingeordnet. Ohne Ortsangabe kommen sie zu der Reise, die zu ihrer Aufnahmezeit läuft – bis 6 Stunden vor dem ersten oder nach dem letzten Reisefoto, nie über ein Heimatfoto hinweg. Liegt keine Reise in der Nähe, warten sie ohne Prüffall. Kleinere Fotos und Fotos ohne Ort beginnen oder beenden nie selbst eine Reise; ein weitergeleitetes Bild zu Hause ist kein Heimatbeleg. Eine Aufnahmezeit ist weiterhin nötig.
+- Eine passende Aufnahme außerhalb des Heimatradius beginnt eine Reise. Der Ort mit den meisten Aufnahmen bestimmt den Reisetitel `Ort YYYY` (bei Gleichstand der frühere). Für die Benennung gilt das im Foto aufgezeichnete lokale Aufnahmedatum. Der Ortsname wird aus mitgelieferten Kartendaten bestimmt, ohne GPS an einen externen Dienst zu senden. Ohne geeigneten Ort lautet er `Reise`.
+- Die Reise läuft über Tageswechsel, Monate und beliebig lange Aufnahmeunterbrechungen weiter. Erst eine Kameraaufnahme **innerhalb des Heimatradius** beendet sie. Videos werden wie Fotos berücksichtigt, wenn Zeit, GPS und Mindestauflösung vorliegen.
+- Optional: Mit **Funkstille** endet eine Reise auch nach der gewählten Zahl von Tagen ohne Reisefoto. Mit **kurzem Heimataufenthalt** setzt ein Reisefoto innerhalb der gewählten Stunden nach dem ersten Heimatfoto die Reise fort. Geänderte Regeln wirken nur auf noch nicht zugeordnete Aufnahmen; bestehende Reisen werden nie nachträglich geteilt oder zusammengelegt.
+- Die nächste passende Außenaufnahme beginnt eine neue Reise. Gleichnamige Reisen sind erlaubt; jede hat ihre eigene Kennung.
+- Der Titel einer bereits angelegten Reise bleibt stabil. Einen Reisetitel kannst du in der Website ändern; Folgeimporte überschreiben ihn nicht.
+- Fehlende GPS-Daten (ohne die Option oben), Aufnahmezeit, Auflösung oder mehrdeutige Metadaten ergeben einen Prüffall. Eine solche Aufnahme gilt nicht als nachgewiesenes Heimatfoto.
+- Verspätete Uploads werden anhand ihrer Aufnahmezeit eingeordnet. Würde ein nachträgliches Heimatfoto bereits zugeordnete Reisen teilen, hält die Automatik die betroffenen Zuordnungen an und meldet einen Prüffall. Sie verschiebt keine bereits importierten Fotos heimlich in andere Reisen. Gleichzeitige widersprüchliche Heimat-/Außenaufnahmen sind ebenfalls Prüffälle.
 
 ## Installation durch den Websitebetreiber
 
@@ -36,26 +42,26 @@ Die bisherige persönliche Automatik ist ein anderer Worker mit eigenen Regeln u
 php /PFAD/ZUR/WEBSITE/tools/travel-automation.php validate --config /PRIVAT/settings.json
 ```
 
-5. In `api/config.php` den optionalen Eintrag `travel_automation_settings_file` auf den absoluten Pfad dieser privaten JSON-Datei setzen. Danach erscheint für Microsoft-Admins unter „Anmeldung & Verbindungen“ der Link „Fotoautomatik einstellen“. Die geschützte Seite lässt nur den zur Konfiguration gehörenden Kontoinhaber Quell-/Zielordner, Heimatpunkt, Radius, Zeitzone, Nachholbeginn und die beiden Aktivierungsschalter ändern. Werkzeugpfade und Kontoinhaber bleiben Betreiberkonfiguration. Die Seite startet keinen Job.
+5. In `api/config.php` den optionalen Eintrag `travel_automation_settings_file` auf den absoluten Pfad dieser privaten JSON-Datei setzen. Danach erscheint für Microsoft-Admins unter „Anmeldung & Verbindungen“ der Link „Fotoautomatik einstellen“. Die geschützte Seite lässt nur den zur Konfiguration gehörenden Kontoinhaber Fotoordner, Heimatpunkt, weitere Heimatorte, Radius, Stationsgröße, Funkstille, Heimataufenthalt, die Option für kleinere Fotos, Zeitzone, Nachholbeginn und die Aktivierung ändern. Ältere Einstellungsdateien mit `targetFolder`, `cleanupEnabled` oder `storageMode` werden weiter angenommen; diese Werte haben keine Wirkung mehr und entfallen beim nächsten Speichern. Werkzeugpfade und Kontoinhaber bleiben Betreiberkonfiguration. Die Seite startet keinen Job.
 6. Als Datenbank-Installationskonto `api/migration-automation.sql` und `api/migration-travel-automation.sql` einmalig ausführen, oder mit entsprechendem CLI-Datenbankkonto den Modus `install-schema` verwenden. Nur zusätzliche Automatik-Tabellen werden angelegt; der laufende Web-Benutzer benötigt keine dauerhaften CREATE-/ALTER-Rechte. Andere historische Migrationen nicht pauschal erneut anwenden.
-7. Als Microsoft-Admin deiner Website `https://DEINE-WEBSITE/api/automation-connect.php?scope=selected` öffnen und die separate OneDrive-Schreibfreigabe erteilen. Die vorhandene Web-Callbackadresse `/api/callback.php` wird weiterverwendet. Microsoft erteilt `Files.ReadWrite` für das Konto; der Worker prüft zusätzlich Konto, Drive, Elternketten sowie die ausgewählten Quell-/Zielordner. Fremde Drives und geteilte Verknüpfungen werden nicht verfolgt. Die neue Verbindung ersetzt weder normale Website-/App-Anmeldungen noch die persönliche Photos-Automatikverbindung.
-8. `check` statt `validate` ausführen. Dieser Schritt prüft zusätzlich Datenbank, Verbindung und Quellordner. Er startet keine Fotojobs und erstellt keine Reiseordner.
+7. Als Microsoft-Admin deiner Website `https://DEINE-WEBSITE/api/automation-connect.php?scope=selected` öffnen und die separate OneDrive-Lesefreigabe erteilen. Die vorhandene Web-Callbackadresse `/api/callback.php` wird weiterverwendet. Microsoft erteilt nur Lesezugriff (`Files.Read`); die Automatik verwendet ausschließlich lesende Microsoft-Graph-Abrufe. Eine früher erteilte Lese-/Schreibfreigabe funktioniert weiter, bis du die Verbindung erneuerst. Der Worker prüft zusätzlich Konto, Drive, Elternketten und den ausgewählten Fotoordner. Fremde Drives und geteilte Verknüpfungen werden nicht verfolgt. Die neue Verbindung ersetzt weder normale Website-/App-Anmeldungen noch die persönliche Photos-Automatikverbindung.
+8. `check` statt `validate` ausführen. Dieser Schritt prüft zusätzlich Datenbank, Verbindung und Quellordner. Er startet keine Fotojobs.
 
 ## Probelauf, Aktivierung und Nachholen
 
-`dry-run` verwendet die vorhandene OneDrive-Leseverbindung des Microsoft-Admins. Dafür sind weder die separate Schreibfreigabe noch die neuen Automatik-Tabellen nötig. Der Lauf liest die Quellen und erstellt einen privaten Bericht, kopiert und importiert jedoch keine Originale und bereinigt keine Quellen:
+`dry-run` verwendet die vorhandene OneDrive-Leseverbindung des Microsoft-Admins. Dafür sind weder die separate Lesefreigabe der Automatik noch die neuen Automatik-Tabellen nötig. Der Lauf liest die Quellen und erstellt einen privaten Bericht, trägt jedoch nichts in den Reisekatalog ein:
 
 ```sh
 php /PFAD/ZUR/WEBSITE/tools/travel-automation.php dry-run --config /PRIVAT/settings.json
 ```
 
-Der Probelauf hat einen eigenen wiederaufnehmbaren Scanstand. Bei großen Archiven mehrmals ausführen, bis `scanComplete=true` erscheint. Der Bericht steht im privaten Unterordner `travel-v2-…/preview.md`, die maschinenlesbare Ausgabe in `preview-status.json`. Token-Erneuerung und privater Scanfortschritt werden gespeichert; „lesend“ bezieht sich auf Fotos, Reiseordner und Reisekatalog. Einen begonnenen echten Lauf verändert der Probelauf nicht.
+Der Probelauf hat einen eigenen wiederaufnehmbaren Scanstand. Bei großen Archiven mehrmals ausführen, bis `scanComplete=true` erscheint. Der Bericht steht im privaten Unterordner `travel-v2-…/preview.md`, die maschinenlesbare Ausgabe in `preview-status.json`. Token-Erneuerung und privater Scanfortschritt werden gespeichert; „lesend“ bezieht sich auf Fotos und Reisekatalog. Einen begonnenen echten Lauf verändert der Probelauf nicht.
 
 Standardmäßig werden ältere Aufnahmen **nicht nachträglich importiert**. Ohne `startAt` beginnt die echte Überwachung zum Zeitpunkt des ersten aktivierten `run`-Laufs. Für einen gewünschten zukünftigen Start kannst du `startAt` als ISO-Zeitpunkt mit Zeitzone festlegen. Zum bewussten Nachholen setze `backfillFrom`, z. B. `2026-10-01T00:00:00+02:00`, und starte zuerst den Probelauf. Auch beim Nachholen muss der gewählte Zeitraum geeignete Heimatfotos enthalten, um Reisegrenzen nachweisen zu können; ohne Heimatfoto bleibt es eine fortlaufende Reise.
 
-Nach Prüfung `enabled=true`, aber zunächst `cleanupEnabled=false` setzen. `run` legt den echten privaten Zustand an und bindet dessen Speicherort an das Konto. Wiederholungen verwenden dieselben Reise- und Dateizuordnungen. **Diesen Zustand nicht löschen, verschieben oder durch den Probelaufzustand ersetzen.** Ein zweiter Worker mit anderem Zustandsordner für dasselbe Konto wird abgewiesen. Geänderte Einstellungen wirken ab dem Zeitpunkt des nächsten Laufs auf künftig aufgenommene, noch unbekannte Dateien; bereits bekannte Ereignisse und angelegte Reisen werden nicht rückwirkend umgerechnet. Ein neuer expliziter `backfillFrom`-Wert erlaubt einen weiteren bewussten Nachhol-Lauf. Bereits laufende Jobs behalten ihre bisherigen freigegebenen Quell-/Zielordner.
+Nach Prüfung `enabled=true` setzen. `run` legt den echten privaten Zustand an und bindet dessen Speicherort an das Konto. Wiederholungen verwenden dieselben Reise- und Dateizuordnungen. **Diesen Zustand nicht löschen, verschieben oder durch den Probelaufzustand ersetzen.** Ein zweiter Worker mit anderem Zustandsordner für dasselbe Konto wird abgewiesen. Geänderte Einstellungen wirken ab dem Zeitpunkt des nächsten Laufs auf künftig aufgenommene, noch unbekannte Dateien; bereits bekannte Ereignisse und angelegte Reisen werden nicht rückwirkend umgerechnet. Ein neuer expliziter `backfillFrom`-Wert erlaubt einen weiteren bewussten Nachhol-Lauf. Bereits laufende Jobs behalten ihren bisherigen Fotoordner.
 
-Erst nach einem begrenzten Kopier-/Importtest `cleanupEnabled=true` setzen, falls die Originale aus dem überwachten Ordner entfernt werden sollen. Die Reihenfolge ist immer: kopieren → Original und Kopie vollständig per SHA-256 prüfen → Katalogimport und Medienreferenzen bestätigen → Quelle mit ihrer exakten Version in den **OneDrive-Papierkorb** verschieben. Unsichere Antworten oder Versionsänderungen ergeben einen Prüffall und keinen blinden neuen Löschversuch. Heimataufnahmen werden nicht kopiert oder bereinigt.
+Jede Zuordnung läuft so: Original mit seiner exakten Version lesen → Inhalt per SHA-256 prüfen → erneut prüfen, dass sich Version und Ordner nicht geändert haben → im Reisekatalog als Verweis eintragen. Unsichere Antworten oder Versionsänderungen ergeben einen Prüffall. Wird ein Original später in OneDrive verschoben oder umbenannt, bleibt es über seine Kennung auffindbar. Frühere Versionen der Automatik konnten in einen Zielordner kopieren; solche Kopien und bereits angelegte Reisen bleiben unverändert erhalten.
 
 ## Nächtlicher Betrieb und Kontrolle
 
@@ -67,9 +73,9 @@ Beispiel für einen bestehenden Hosting-Cronplan (alle fünf Minuten, absolute P
 
 Der Modus `night` startet nur zwischen 00:00 und 06:00 in der konfigurierten Zeitzone; außerhalb dieses Fensters beendet er sich ohne Datenbank- oder OneDrive-Zugriff. `run` bleibt für einen ausdrücklich gestarteten manuellen Import verfügbar.
 
-Ein Lauf verarbeitet ausschließlich Aufnahmezeiten **vor dem heutigen Tagesbeginn** in deiner Zeitzone. Neue Vortagsaufnahmen werden damit ab Mitternacht berücksichtigt. Die Uhrzeit des Hosting-Cronservers ist unabhängig davon; der Worker berechnet die Grenze selbst einschließlich Sommer-/Winterzeit. Der Import kann sich bei großen Beständen über mehrere begrenzte Läufe verteilen. Erst ein vollständiger Scan darf Kopier-/Importjobs ausführen, damit die beliebige OneDrive-Ordnerreihenfolge keine Reisegrenzen erfindet. Ein Dateilimit und ein Zeitbudget begrenzen jeden Lauf; ein privates Lock verhindert parallele Ausführung.
+Ein Lauf verarbeitet ausschließlich Aufnahmezeiten **vor dem heutigen Tagesbeginn** in deiner Zeitzone. Neue Vortagsaufnahmen werden damit ab Mitternacht berücksichtigt. Die Uhrzeit des Hosting-Cronservers ist unabhängig davon; der Worker berechnet die Grenze selbst einschließlich Sommer-/Winterzeit. Der Import kann sich bei großen Beständen über mehrere begrenzte Läufe verteilen. Erst ein vollständiger Scan darf Zuordnungen eintragen, damit die beliebige OneDrive-Ordnerreihenfolge keine Reisegrenzen erfindet. Ein Dateilimit und ein Zeitbudget begrenzen jeden Lauf; ein privates Lock verhindert parallele Ausführung.
 
-`status` zeigt den letzten echten Lauf. `journal.md` nennt geplante Zielordner, offene Jobs und Prüffälle; `status.json` enthält Fortschritt und Zähler. Vor jeder Importserie entsteht eine private Katalogsicherung. Normale Websitebackups, private Automatikzustände und Originalfotos trotzdem unabhängig sichern. Bei `discovery-blocked` erst den genannten Fehler beheben; ohne vollständigen Scan werden keine neuen Fotojobs ausgelöst. Änderungen an bereits bewerteten Originalversionen halten den Scan zur Prüfung an.
+`status` zeigt den letzten echten Lauf. `journal.md` nennt geplante Reisen, offene Zuordnungen und Prüffälle; `status.json` enthält Fortschritt und Zähler. Vor jeder Importserie entsteht eine private Katalogsicherung. Normale Websitebackups, private Automatikzustände und Originalfotos trotzdem unabhängig sichern. Bei `discovery-blocked` erst den genannten Fehler beheben; ohne vollständigen Scan werden keine neuen Fotojobs ausgelöst. Änderungen an bereits bewerteten Originalversionen halten den Scan zur Prüfung an.
 
 Zum Pausieren `enabled=false` setzen und gegebenenfalls den Cronjob deaktivieren. Das trennt weder OneDrive noch löscht es bestehende Reisen. Ein sofort laufender Vorgang muss zunächst enden. Keine Originale oder Zustandsdateien zur Fehlerbehebung löschen.
 
@@ -77,8 +83,8 @@ Zum Pausieren `enabled=false` setzen und gegebenenfalls den Cronjob deaktivieren
 
 1. Konfiguration prüfen; neue leere Installation mit den beiden Automatikmigrationen testen.
 2. Probelauf mit ausdrücklichem Nachholbeginn und wenigen eigenen Testaufnahmen außerhalb/innerhalb des Heimatradius. Bericht muss zwei Reisen mit einem dazwischenliegenden Heimatfoto vorsehen.
-3. Kopieren/Importieren ohne Bereinigung; Originalnamen, Metadaten, Foto-/Videoanzeige, Tageszuordnung, Wiederholung und Neustart prüfen.
-4. Erst anschließend Quellenbereinigung für diese begrenzte Testauswahl prüfen; Heimatfoto bleibt erhalten.
+3. Zuordnung echt ausführen; Originalnamen, Metadaten, Foto-/Videoanzeige, Tageszuordnung, Wiederholung und Neustart prüfen. Die Originale müssen unverändert am selben Ort liegen.
+4. Optional mit „kleinere Fotos“ ein WhatsApp-Foto ohne Ort aus der Reisezeit testen: es erscheint in der Reise.
 5. Neue Serverreise auf iOS/Windows übernehmen und eine lokale Bearbeitung mit dem Server abgleichen. Das Datum des Hintergrundabrufs auf iOS bestimmt das Betriebssystem.
 
 Lokale synthetische Prüfungen ersetzen weder Microsoft-Einwilligung noch diese reale Abnahme.

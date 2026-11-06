@@ -72,7 +72,7 @@
       draft[0] = [...from]; draft[draft.length - 1] = [...to];
       if (draft.length < 2) draft = [[...from], [...to]];
       const handles = L.layerGroup().addTo(map);
-      const line = L.polyline(draft, { color: '#d5f054', weight: 5, bubblingMouseEvents: false }).addTo(map);
+      const line = L.polyline(draft, { color: getComputedStyle(document.documentElement).getPropertyValue('--acid').trim() || '#d5f054', weight: 5, bubblingMouseEvents: false }).addTo(map);
       const panel = L.control({ position: 'topright' });
       const container = document.createElement('section'); container.className = 'manual-route-editor';
       const heading = document.createElement('h2'); heading.textContent = 'Verbindungsstrecke bearbeiten';

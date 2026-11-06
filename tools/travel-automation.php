@@ -36,34 +36,21 @@ try{
     $drive=$graph->get('me/drive?$select=id');if($mode==='dry-run')$owner['drive_id']=$drive['id']??null;if(empty($owner['drive_id'])||($drive['id']??null)!==$owner['drive_id'])throw new RuntimeException('drive_identity_changed');
     $rootItem=$graph->get('me/drive/root?$select='.TravelGraph::FIELDS);
     if(isset($rootItem['parentReference']['driveId'])&&$rootItem['parentReference']['driveId']!==$owner['drive_id'])throw new RuntimeException('drive_identity_changed');
-    $rootItem['parentReference']['driveId']=$owner['drive_id'];$scope=new TravelOneDriveScope($rootItem,$s['sourceFolder'],$s['targetFolder']);
+    $rootItem['parentReference']['driveId']=$owner['drive_id'];$scope=new TravelOneDriveScope($rootItem,$s['sourceFolder']);
     if($mode!=='dry-run'&&$rootItem['id']!==$owner['root_item_id'])throw new RuntimeException('drive_root_changed');
     $source=$graph->resolve($rootItem,$s['sourceFolder'],$scope,false);if($source===null)throw new RuntimeException('camera_folder_missing');
-    if($mode==='check'){echo json_encode(['status'=>'ready','enabled'=>$s['enabled'],'cleanupEnabled'=>$s['cleanupEnabled'],'timezone'=>$s['timezone'],'sourceFolder'=>$s['sourceFolder'],'targetFolder'=>$s['targetFolder'],'radiusKm'=>$s['radiusKm']],JSON_UNESCAPED_SLASHES).PHP_EOL;exit(0);}
+    if($mode==='check'){echo json_encode(['status'=>'ready','enabled'=>$s['enabled'],'smallPhotos'=>$s['smallPhotos'],'timezone'=>$s['timezone'],'sourceFolder'=>$s['sourceFolder'],'radiusKm'=>$s['radiusKm']],JSON_UNESCAPED_SLASHES).PHP_EOL;exit(0);}
     if($mode==='run'){
         $stateId=hash('sha256',realpath($private));$q=$db->prepare('UPDATE travel_automation_connections SET worker_state_id=? WHERE user_id=? AND worker_state_id IS NULL');$q->execute([$stateId,$owner['id']]);
         $q=$db->prepare('SELECT worker_state_id FROM travel_automation_connections WHERE user_id=?');$q->execute([$owner['id']]);if(!hash_equals($stateId,(string)$q->fetchColumn()))throw new RuntimeException('worker_state_directory_changed');
     }
     $metadata=static function(array $chain)use($graph,$token,$scope,$private,$s,$root):array{$read=pipeline_metadata(fn($path)=>$graph->get($path),$token,$chain,$scope,TravelGraph::FIELDS,$private,$s['exiftool'],$s['perl']);$m=$read['metadata'];$read['place']=isset($m['latitude'],$m['longitude'])?pipeline_place((float)$m['latitude'],(float)$m['longitude'],$root.'/map-labels'):'Reise';return $read;};
-    $journal=new AutomationJournal($private.'/journal');
-    $port=static function(array $job,array $trip)use($graph,$rootItem,$dbFactory,$owner,$token):PhotosAutomationCopyPort{
-        $jobScope=new TravelOneDriveScope($rootItem,$job['sourceFolder'],$trip['targetBase']);
-        $destination=$graph->resolve($rootItem,$trip['targetPath'],$jobScope,true);
-        $tripData=['id'=>$trip['id'],'title'=>$trip['title'],'source_folder'=>$trip['targetPath']];
-        return new PhotosAutomationCopyPort($token,$job['chain'],$destination,static fn($record,$target)=>automation_catalog_import($dbFactory(),(int)$owner['id'],$tripData,$record,$job['media'],$target,$trip['targetBase']),null,$jobScope);
+    // Originals stay in place: verify the current source version/hash and bind it to the journey.
+    $register=static function(array $job,array $trip)use($graph,$rootItem,$owner,$dbFactory,$token,$private,$s):array{
+        $jobScope=new TravelOneDriveScope($rootItem,$job['sourceFolder']);
+        return automation_register_original($dbFactory(),(int)$owner['id'],$token,$job,$trip,$jobScope,fn($path)=>$graph->get($path),TravelGraph::FIELDS,$private,$s['exiftool'],$s['perl']);
     };
-    // Resolve the exact destination once per attempt; the port always refreshes its parents.
-    $transfer=static function(array $job,array $trip)use($graph,$rootItem,$port,$journal,$owner,$dbFactory,$token,$private,$s):array{
-        $jobScope=new TravelOneDriveScope($rootItem,$job['sourceFolder'],$trip['targetBase']);
-        if(($job['storageMode']??'copy')==='reference')return automation_register_original($dbFactory(),(int)$owner['id'],$token,$job,$trip,$jobScope,fn($path)=>$graph->get($path),TravelGraph::FIELDS,$private,$s['exiftool'],$s['perl']);
-        $dest=$graph->resolve($rootItem,$trip['targetPath'],$jobScope,true);$p=$port($job,$trip);return (new AutomationCopyWorker($journal,$p))->run($owner['account_id'],$owner['drive_id'],$job['media']['itemId'],$job['media']['version'],$dest[0]['id'],$job['extension'],$job['media']);
-    };
-    $cleanup=static fn(array $job,array $trip):array=>(new AutomationCleanupWorker($journal,$port($job,$trip),static fn($record)=>automation_cleanup_catalog_confirmed($dbFactory(),(int)$owner['id'],$record)))->run($owner['account_id'],$owner['drive_id'],$job['media']['itemId']);
     $backup=static function(string $day)use($private,$dbFactory,$owner):void{$path=$private.'/catalog-before-'.$day.'.json';if(is_file($path))return;$db=$dbFactory();$db->beginTransaction();try{$q=$db->prepare('SELECT * FROM trips WHERE user_id=?');$q->execute([$owner['id']]);$data=['trips'=>$q->fetchAll(PDO::FETCH_ASSOC)];foreach(['trip_stops','media_items','trip_day_summaries'] as $table){$q=$db->prepare('SELECT x.* FROM '.$table.' x JOIN trips t ON t.id=x.trip_id WHERE t.user_id=?');$q->execute([$owner['id']]);$data[$table]=$q->fetchAll(PDO::FETCH_ASSOC);}$db->commit();travel_save($path,$data);}catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}};
-    $existing=static function(string $folder)use($graph,$rootItem,$s,$dbFactory,$owner):bool{
-        $q=$dbFactory()->prepare('SELECT 1 FROM trips WHERE user_id=? AND source_folder=?');$q->execute([$owner['id'],$folder]);if($q->fetchColumn())return true;
-        $probe=new TravelOneDriveScope($rootItem,'',str_replace('\\','/',dirname($folder)));return $graph->resolve($rootItem,$folder,$probe,false)!==null;
-    };
-    $runner=new TravelAutomationRunner($s,$private,['account'=>$owner['account_id'],'drive'=>$owner['drive_id'],'root'=>$rootItem['id']],fn($chain,$next)=>$graph->children($chain,$next,$scope),$metadata,$transfer,$cleanup,$backup,$existing);
+    $runner=new TravelAutomationRunner($s,$private,['account'=>$owner['account_id'],'drive'=>$owner['drive_id'],'root'=>$rootItem['id']],fn($chain,$next)=>$graph->children($chain,$next,$scope),$metadata,$register,$backup);
     echo json_encode($runner->run($source,new DateTimeImmutable('now'),$mode==='dry-run'),JSON_UNESCAPED_SLASHES).PHP_EOL;
 }catch(Throwable $error){$reason=travel_reason($error);if(isset($private)&&is_dir($private)&&in_array($mode??'', ['run','dry-run'],true))travel_save($private.($mode==='dry-run'?'/preview-status.json':'/status.json'),['at'=>gmdate(DATE_ATOM),'status'=>'error','reason'=>$reason]);echo json_encode(['status'=>'error','reason'=>$reason]).PHP_EOL;exit(1);}

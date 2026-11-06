@@ -69,14 +69,14 @@ function automation_catalog_import(PDO $db,int $owner,array $trip,array $record,
             $q=$db->prepare('SELECT * FROM trip_stops WHERE trip_id=? ORDER BY position');$q->execute([$trip['id']]);$stops=$q->fetchAll(PDO::FETCH_ASSOC);
             $item=['id'=>$target['id'],'name'=>$media['name']??$target['name'],'location'=>['latitude'=>$media['latitude']??null,'longitude'=>$media['longitude']??null],
                 ($media['kind']??'photo')==='video'?'video':'photo'=>[],
-                '_capture'=>['date'=>$taken,'source'=>$taken===null?'unknown':'original-metadata','original_taken_at'=>$media['takenAt']??null]];
-            $plan=sync_addition_plan($stops,[$item],static fn()=>automation_uuid());
+                '_capture'=>['date'=>$taken,'source'=>$taken===null?'unknown':(($media['captureSource']??null)==='file-created'?'file-created':'original-metadata'),'original_taken_at'=>$media['takenAt']??null]];
+            $plan=sync_addition_plan($stops,[$item],static fn()=>automation_uuid(),(float)($trip['station_radius_km']??1.0));
             if($plan['new_stops']){$max=0;foreach($stops as $s)$max=max($max,(int)$s['position']);$q=$db->prepare('UPDATE trip_stops SET position=position+? WHERE trip_id=?');$q->execute([$max+count($plan['stops'])+1,$trip['id']]);}
             $insert=$db->prepare('INSERT INTO trip_stops(id,trip_id,position,name,latitude,longitude,starts_at,ends_at) VALUES(?,?,?,?,?,?,?,?)');
             $update=$db->prepare('UPDATE trip_stops SET position=?,starts_at=?,ends_at=? WHERE id=? AND trip_id=?');
             foreach($plan['stops'] as $id=>$stop){if(isset($plan['new_stops'][$id]))$insert->execute([$id,$trip['id'],$stop['position'],$stop['name'],$stop['latitude'],$stop['longitude'],$stop['starts_at'],$stop['ends_at']]);else $update->execute([$stop['position'],$stop['starts_at'],$stop['ends_at'],$id,$trip['id']]);}
             $item=$plan['media'][0];
-            $values=['id'=>automation_uuid(),'trip_id'=>$trip['id'],'stop_id'=>$item['_stop_id'],'onedrive_item_id'=>$target['id'],'name'=>$item['name'],'media_type'=>isset($item['video'])?'video':'photo','taken_at'=>$taken,'latitude'=>$media['latitude']??null,'longitude'=>$media['longitude']??null,'web_url'=>$target['webUrl']??null,'capture_source'=>$taken===null?'unknown':'original-metadata','capture_details'=>json_encode($item['_capture'],JSON_THROW_ON_ERROR)];
+            $values=['id'=>automation_uuid(),'trip_id'=>$trip['id'],'stop_id'=>$item['_stop_id'],'onedrive_item_id'=>$target['id'],'name'=>$item['name'],'media_type'=>isset($item['video'])?'video':'photo','taken_at'=>$taken,'latitude'=>$media['latitude']??null,'longitude'=>$media['longitude']??null,'web_url'=>$target['webUrl']??null,'capture_source'=>$item['_capture']['source'],'capture_details'=>json_encode($item['_capture'],JSON_THROW_ON_ERROR)];
             if(isset($columns['source_provider']))$values['source_provider']='onedrive';if(isset($columns['source_item_id']))$values['source_item_id']=$target['id'];
             $q=$db->prepare('INSERT INTO media_items('.implode(',',array_keys($values)).') VALUES('.implode(',',array_fill(0,count($values),'?')).')');$q->execute(array_values($values));
         }

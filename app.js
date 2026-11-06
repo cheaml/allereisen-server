@@ -255,7 +255,7 @@ function addCoastalLabels(map, L) {
 }
 
 async function openStopMedia(tripId,stopId,title){let dialog=document.createElement('dialog'),card=document.createElement('section'),close=document.createElement('button'),heading=document.createElement('h2'),list=document.createElement('div');card.style.cssText='background:#f4f0e8;padding:32px;max-width:560px';close.textContent='×';close.style.cssText='float:right;border:0;background:none;font-size:28px;cursor:pointer';heading.textContent=title;list.textContent='Medien werden geladen …';close.onclick=()=>dialog.close();card.append(close,heading,list);dialog.append(card);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();try{let response=await apiFetch(`./api/api.php?action=media&trip=${encodeURIComponent(tripId)}&stop=${encodeURIComponent(stopId)}`,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error();list.replaceChildren(...(data.media||[]).map(media=>{let link=document.createElement('a');link.href=media.web_url||'#';link.target='_blank';link.rel='noopener';link.textContent=`${media.media_type==='video'?'VIDEO':'FOTO'} · ${media.name}`;link.style.cssText='display:block;padding:12px 0;border-top:1px solid #d8d4ca;color:#26473e';return link}));if(!data.media?.length)list.textContent='Für diese Station sind keine Medien gespeichert.'}catch{list.textContent='Die Medien konnten nicht geladen werden.'}}
-function stopTimeLabel(stop){if(!stop.starts_at)return '';let date=new Date(stop.starts_at.replace(' ','T'));if(Number.isNaN(date.getTime()))return '';return new Intl.DateTimeFormat('de-DE',{weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(date).replace('.', '')+' Uhr'}
+function stopTimeLabel(stop){if(!stop.starts_at)return '';let date=new Date(stop.starts_at.replace(' ','T'));if(Number.isNaN(date.getTime()))return '';return new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE',{weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(date).replace('.', '')+(globalThis.ReiseI18n?.language==='en'?'':' Uhr')}
 function stopDay(value){return String(value||'').match(/\d{4}-\d{2}-\d{2}/)?.[0]||''}
 async function aiProposals(tripId, stops) {
   const button = document.querySelector('#aiProposals');
@@ -395,7 +395,7 @@ async function renderDayWeather(page, tripId, day) {
     if (!response.ok || !data.available) return;
     section.replaceChildren();
     const values = document.createElement('div'); values.className = 'day-weather-values';
-    const number = value => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(value);
+    const number = value => new Intl.NumberFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE', { maximumFractionDigits: 0 }).format(value);
     const item = (symbol, label, value) => {
       const node = document.createElement('div'), icon = dayWeatherIcon(symbol), detail = document.createElement('strong');
       node.title = `${label}: ${value}`; node.setAttribute('aria-label', node.title);
@@ -432,7 +432,7 @@ async function serverDayView(tripClientId, day) {
   headerLink.href = `#trip/${tripClientId}`;
   headerLink.textContent = `ZURÜCK ZUR KARTE: ${tripRecord.title || 'REISE'}`;
   headerTitle.replaceChildren(headerLink);
-  page.querySelector('h1').textContent = new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(`${day}T12:00:00`));
+  page.querySelector('h1').textContent = new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(`${day}T12:00:00`));
   await mountTripDayAdministration(page,tripRecord);
   const list = page.querySelector('.day-stops-choice'), summaryText = page.querySelector('.day-summary-text');
   try {
@@ -873,7 +873,7 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
         const note = document.createElement('small'); note.style.cssText = 'font-size:11px;color:var(--muted)';
         const date = timestamp ? new Date(timestamp.replace(' ', 'T') + 'Z') : null;
         note.textContent = date && !Number.isNaN(date.getTime())
-          ? `Zuletzt: ${new Intl.DateTimeFormat('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Vienna' }).format(date)}`
+          ? `Zuletzt: ${new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Vienna' }).format(date)}`
           : 'Noch nicht protokolliert';
         group.append(button, note); mediaActions.append(group);
       };
@@ -890,7 +890,7 @@ function administration() {
   if (!access.isAdmin && !ownsAnyTrip()) { go('#home'); return; }
   app.replaceChildren(); headerTitle.textContent = access.isLocal ? 'LOKALE REISEN' : 'ALLE REISEN';
   const page = document.createElement('section'); page.className = 'library-page';
-  page.innerHTML = '<div class="library-head"><div><p class="eyebrow">REISEARCHIV</p><h1>' + (access.isAdmin ? (access.isLocal ? 'Lokale' : 'Alle') + ' <em>Reisen.</em>' : 'Meine <em>Reisen.</em>') + '</h1></div></div><div class="trip-grid" id="adminTripGrid"></div>';
+  page.innerHTML = '<div class="library-head"><div><p class="eyebrow">ÜBERSICHT</p><h1>' + (access.isAdmin ? (access.isLocal ? 'Lokale' : 'Alle') + ' <em>Reisen.</em>' : 'Meine <em>Reisen.</em>') + '</h1></div></div><div class="trip-grid" id="adminTripGrid"></div>';
   renderWebArchiveStatus(page);
   const allTripsGuestAccess = document.createElement('section');
   allTripsGuestAccess.className = 'all-trips-guest-access';
@@ -1736,14 +1736,14 @@ function journeyDayDistance(stops, day) {
   const rad=n=>Number(n)*Math.PI/180, dlat=rad(end.latitude-start.latitude), dlon=rad(end.longitude-start.longitude);
   const a=Math.sin(dlat/2)**2+Math.cos(rad(start.latitude))*Math.cos(rad(end.latitude))*Math.sin(dlon/2)**2;
   const km=6371.0088*2*Math.asin(Math.sqrt(Math.min(1,a)));
-  return 'Tagesstrecke (Luftlinie): '+new Intl.NumberFormat('de-AT',{maximumFractionDigits:1}).format(km)+' km';
+  return 'Tagesstrecke (Luftlinie): '+new Intl.NumberFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT',{maximumFractionDigits:1}).format(km)+' km';
 }
 
 function journeyStepLabel(summary) {
   try {
     const value=typeof summary?.steps==='string'?JSON.parse(summary.steps):summary?.steps;
     if(typeof value?.person!=='string'||!value.person.trim()||value.person.length>120||!Number.isSafeInteger(value.count)||value.count<0)return '';
-    return new Intl.NumberFormat('de-AT').format(value.count)+' Schritte · '+value.person;
+    return new Intl.NumberFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT').format(value.count)+' Schritte · '+value.person;
   } catch{return '';}
 }
 
@@ -1918,6 +1918,23 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     duration.onchange=()=>{photoSeconds=Number(duration.value);try{localStorage.setItem('atlas-photo-seconds',String(photoSeconds));}catch{}duration.blur();schedule();keepControlsVisible();};
     const durationIcon=document.createElement('span');durationIcon.className='media-duration-icon';durationIcon.innerHTML=window.ReiseIcons?.svg('duration')||'◷';durationIcon.setAttribute('aria-hidden','true');durationLabel.title='Anzeigedauer pro Foto';
     durationLabel.append(durationIcon,duration);playback.append(durationLabel,mapToggle);dialog.append(playback);
+    // Apps: open the full-resolution original (own source or, for other people's trips, via the server).
+    if(nativeViewer&&globalThis.ReiseNative){
+      const originalButton=document.createElement('button');originalButton.type='button';originalButton.className='media-original-button';
+      if(globalThis.ReiseIcons)ReiseIcons.apply(originalButton,'original','Original öffnen');else{originalButton.textContent='Original';originalButton.setAttribute('aria-label','Original öffnen');}
+      originalButton.onclick=async()=>{
+        const item=items[index];if(phase!=='media'||!item?.mediaId)return;
+        playing=false;updatePlayback();keepControlsVisible();
+        const requestId='original-'+Date.now(),mb=value=>(value/1048576).toFixed(1).replace('.',',');
+        const progress=event=>{const detail=event.detail;if(detail?.requestId!==requestId)return;
+          reportVideoStatus(detail.total?'Original wird geladen … '+Math.min(99,Math.floor(detail.received*100/detail.total))+' % ('+mb(detail.received)+' von '+mb(detail.total)+' MB)':'Original wird geladen … '+mb(detail.received)+' MB');};
+        window.addEventListener('ReiseVideoProgress',progress);originalButton.disabled=true;reportVideoStatus('Original wird geladen …');
+        try{const result=await ReiseNative.request('openOriginal',{tripId:item.tripId,mediaId:item.mediaId,requestId});reportVideoStatus(result?.savedTo?'Original gespeichert: '+result.savedTo:'');}
+        catch(error){reportVideoStatus(error?.message||'Das Original konnte nicht geladen werden.',true);}
+        finally{window.removeEventListener('ReiseVideoProgress',progress);originalButton.disabled=false;}
+      };
+      playback.append(originalButton);
+    }
     if(!toolbar.children.length)toolbar.classList.add('media-empty-toolbar');
   }
   const previous = document.createElement('button'), next = document.createElement('button');
@@ -1941,7 +1958,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
       const date = new Date(dateValue + 'T12:00:00');
       const label = document.createElement('time'); label.className = 'media-day-date'; label.dateTime = dayDate;
       label.style.animationPlayState=playing?'running':'paused';
-      const dateText = Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('de-AT', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date) : 'Ohne Aufnahmedatum';
+      const dateText = Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date) : 'Ohne Aufnahmedatum';
       label.dateTime = dateValue || '';
       label.textContent = dayDate ? dateText : dateText + ' · Station ' + (stationDate?.stationNumber || allStops.filter(s=>stopDay(s.starts_at)===dateValue).findIndex(s=>String(s.id)===String(stationDate?.id))+1 || 1);
       if(dayDate){const distance=journeyDayDistance(allStops,dateValue);if(distance)label.textContent+='\n'+distance;if(dayStepLabels.get(dateValue))label.textContent+='\n'+dayStepLabels.get(dateValue);}
@@ -2102,7 +2119,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     }
     let panel;
     if (hasDayText) {
-      const date = new Intl.DateTimeFormat('de-DE', {weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(day + 'T12:00:00'));
+      const date = new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE', {weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(day + 'T12:00:00'));
       panel = textOverlay(date + '\n\n' + summary.summary, 'media-slide-day');
       const distance = journeyDayDistance(allStops, day);
       if(distance)panel.append(Object.assign(document.createElement('p'),{className:'journey-day-metrics',textContent:distance}));
@@ -2113,7 +2130,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     if (!hasDayText && !showMap) { switchingPage = false; enterStation(stop, media, entryIndex, true); return; }
     if (panel && weather.available) {
       const values = document.createElement('div'); values.className = 'day-weather-values';
-      const number = value => new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(value);
+      const number = value => new Intl.NumberFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE',{maximumFractionDigits:0}).format(value);
       for (const [kind, value, label] of [['temperature', weather.temperature_min != null && weather.temperature_max != null ? number(weather.temperature_min) + '–' + number(weather.temperature_max) + ' °C' : '–', 'Temperatur'], ['elevation', weather.elevation != null ? number(weather.elevation) + ' m' : '–', 'Meereshöhe']]) {
         const entry = document.createElement('div'), text = document.createElement('strong'); text.textContent = value; entry.title = label; entry.append(dayWeatherIcon(kind), text); values.append(entry);
       }
@@ -2251,9 +2268,9 @@ addEventListener('hashchange', () => render());
 
 let adminHelpView = 'viewer';
 function solutionHelpCards() {
-  return `<section class="help-card"><span>LÖSUNGEN / IOS</span><h2>iOS-App beziehen</h2><p>AlleReisen gibt es als iOS-App für iPhone und iPad. Die aktuelle Testversion erhältst du über eine TestFlight-Einladung; dafür ist Apples TestFlight-App erforderlich. Für den Bezug wende dich an die Kontaktperson, von der du AlleReisen kennst.</p><p>Voraussetzung: iOS beziehungsweise iPadOS ab Version 16. Die App nutzt Fotoalben einschließlich iCloud-Fotos und OneDrive. Vorhandene Texte, Reisedaten und Vorschauen bleiben auf dem Gerät verfügbar; Originale aus iCloud oder OneDrive können eine Internetverbindung benötigen.</p></section>
+  return `<section class="help-card"><span>LÖSUNGEN / IOS</span><h2>iOS-App beziehen</h2><p>AlleReisen gibt es als iOS-App für iPhone und iPad im App Store.</p><p>Voraussetzung: iOS beziehungsweise iPadOS ab Version 16. Die App nutzt Fotoalben einschließlich iCloud-Fotos und OneDrive. Vorhandene Texte, Reisedaten und Vorschauen bleiben auf dem Gerät verfügbar; Originale aus iCloud oder OneDrive können eine Internetverbindung benötigen.</p></section>
 <section class="help-card"><span>LÖSUNGEN / WINDOWS</span><h2>Windows-App beziehen</h2><p>Die Windows-App erhältst du als ZIP-Paket. Frage deine Kontaktperson nach dem aktuellen Paket, entpacke es vollständig in einen eigenen Ordner und starte „Start-Reisen.cmd“.</p><p>Voraussetzung: ein Windows-PC mit 64-Bit-Intel-/AMD-Prozessor und Windows 10 ab Version 1809 oder Windows 11. Die App nutzt lokale Fotoordner und OneDrive. Lokale Originalordner müssen erreichbar bleiben. Für OneDrive und den Abgleich mit Web ist Internet erforderlich.</p></section>
-<section class="help-card"><span>LÖSUNGEN / WEB</span><h2>Web auf einem eigenen Server</h2><p>Web läuft im Browser und benötigt bei den Betrachtern keine App-Installation. Für einen eigenen Server sind die Web-Dateien als Installationspaket mit Datenbankschema, Konfigurationsvorlage und Installationsanleitung beziehbar. Frage deine Kontaktperson nach dem Paket und der Einrichtung für deine eigene Domain. Ein gewöhnliches Homepage-Baukasten-Angebot oder rein statischer Web-Speicher reicht nicht aus.</p><p>Die drei Lösungen können einzeln oder gemeinsam genutzt werden. OneDrive-Reisen lassen sich zwischen den Apps und Web abgleichen. Lokale Ordner und iCloud-Fotoalben bleiben Quellen der jeweiligen App; sie werden nicht als Web-Reisen veröffentlicht. In Web werden auch Reisezugriffe und Einladungen verwaltet.</p></section>
+<section class="help-card"><span>LÖSUNGEN / WEB</span><h2>Web auf einem eigenen Server</h2><p>Web läuft im Browser und benötigt bei den Betrachtern keine App-Installation. Für einen eigenen Server sind die Web-Dateien als Open-Source-Installationspaket (AGPL-3.0) mit Datenbankschema, Konfigurationsvorlage und Installationsanleitung beziehbar. Ein gewöhnliches Homepage-Baukasten-Angebot oder rein statischer Web-Speicher reicht nicht aus.</p><p>Die drei Lösungen können einzeln oder gemeinsam genutzt werden. OneDrive-Reisen lassen sich zwischen den Apps und Web abgleichen. Lokale Ordner und iCloud-Fotoalben bleiben Quellen der jeweiligen App; sie werden nicht als Web-Reisen veröffentlicht. In Web werden auch Reisezugriffe und Einladungen verwaltet.</p></section>
 <section class="help-card"><span>WEB / PROVIDER-VORAUSSETZUNGEN</span><h2>Was dein Web-Provider anbieten muss</h2><p>Eine eigene Domain oder Subdomain mit HTTPS, PHP ab 8.4 sowie MySQL ab 8.0 oder MariaDB ab 10.11 mit InnoDB und utf8mb4. Benötigte PHP-Erweiterungen: PDO/MySQL, cURL, OpenSSL, mbstring, EXIF, fileinfo, session und JSON. Für HEIC/HEIF-Fotos ist zusätzlich Imagick mit ImageMagick und funktionierendem libheif-Decoder erforderlich.</p><p>Apache 2.4 muss die mitgelieferten .htaccess-Schutzregeln und Header erlauben; bei Nginx muss der Provider gleichwertige Regeln einrichten. PHP benötigt Schreibzugriff auf Cache und temporäre Ordner sowie ausgehende HTTPS-Verbindungen zu Microsoft und den verwendeten Karten-/Wetterdiensten. Als Ausgangspunkt sind 256 MB PHP-Arbeitsspeicher und mindestens 120 Sekunden Laufzeit für Importe vorgesehen; große Reisen benötigen gegebenenfalls mehr.</p><p>Erforderlich sind außerdem genügend Speicher für Karten, Vorschauen und Sicherungen sowie Zugang zum Hochladen der Dateien und Einrichten der Datenbank. Für automatische Import- und Übernahmejobs werden PHP über die Kommandozeile und planbare Cronjobs benötigt. Lass den Provider diese Punkte vorab bestätigen; nach der Einrichtung müssen Anmeldung, Zugriffsschutz und Medienanzeige geprüft werden.</p></section>
 <section class="help-card"><span>WEB / EINRICHTUNG</span><h2>Eigene Konten und Dienste</h2><p>Für die eigene Web-Installation werden eine Microsoft-App-Registrierung mit passenden Rücksprungadressen der eigenen HTTPS-Domain und eigene Zugangsdaten eingerichtet. OneDrive benötigt ein passendes Microsoft-Konto. Karten, Wetter und weitere optionale Dienste werden für die eigene Installation konfiguriert; mögliche Kosten und Nutzungsbedingungen sind vorab zu klären. Zugangsdaten und Schlüssel dürfen nicht öffentlich abrufbar sein.</p><p>Das Web-Paket enthält keine Hosting-Laufzeit, persönlichen Zugangsdaten oder Originalfotos. Der Provider stellt Web-Server, PHP und Datenbank bereit. Die technische Installationsanleitung und die Installationsprüfung liegen dem Paket bei.</p></section>`;
 }
@@ -2447,7 +2464,7 @@ function renderJourneyDayStrip(page, tripId, days, currentDay) {
     if(weather?.available){const icon=dayWeatherIcon(weather.weather_code);icon.setAttribute('aria-label',dayWeatherSymbol(weather.weather_code)[1]);forecast.append(icon);const temp=document.createElement('span');temp.textContent=weather.temperature_min!=null&&weather.temperature_max!=null?`${Math.round(weather.temperature_min)}–${Math.round(weather.temperature_max)} °C`:dayWeatherSymbol(weather.weather_code)[1];forecast.append(temp);}else forecast.textContent='Wetter nicht verfügbar';
   });run();};
   for(const day of days){const button=document.createElement('button');button.type='button';button.dataset.day=day;button.className='journey-day-card';
-    const date=document.createElement('strong');date.textContent=new Intl.DateTimeFormat('de-AT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(day+'T12:00:00'));
+    const date=document.createElement('strong');date.textContent=new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(day+'T12:00:00'));
     const excerpt=document.createElement('span');excerpt.className='journey-day-excerpt';excerpt.textContent='Tagestext wird geladen …';const weather=document.createElement('span');weather.className='journey-day-weather';weather.textContent='Wetter wird geladen …';button.append(date,excerpt,weather);
     if(day===currentDay)button.setAttribute('aria-current','date');button.onclick=()=>go(`#trip/${tripId}/day/${day}`);button.onfocus=()=>schedule(button);strip.append(button);
   }
@@ -2462,7 +2479,7 @@ function library() {
   if ((access.isAdmin || ownsAnyTrip()) && (!window.ReiseWebUI || ReiseWebUI.archiveEditing)) { administration(); return; }
   app.replaceChildren(); headerTitle.textContent = access.isLocal ? 'LOKALE REISEN' : 'ALLE REISEN';
   const page = document.createElement('section'); page.className = 'library-page';
-  page.innerHTML = '<div class="library-head"><div><p class="eyebrow">REISEARCHIV</p><h1>' + (access.isLocal ? 'Lokale' : 'Alle') + ' <em>Reisen.</em></h1></div><span class="media-count"></span></div><div class="trip-grid"></div>';
+  page.innerHTML = '<div class="library-head"><div><p class="eyebrow">ÜBERSICHT</p><h1>' + (access.isLocal ? 'Lokale' : 'Alle') + ' <em>Reisen.</em></h1></div><span class="media-count"></span></div><div class="trip-grid"></div>';
   if((access.isAdmin||ownsAnyTrip())&&window.ReiseWebUI){const manage=document.createElement('button');manage.type='button';manage.className='primary';manage.textContent='Reisen verwalten';manage.onclick=()=>{ReiseWebUI.archiveEditing=true;render();};page.querySelector('.library-head').append(manage);}
   renderWebArchiveStatus(page);
   const records = trips(); page.querySelector('.media-count').textContent = records.length + ' REISEN';
@@ -2527,9 +2544,9 @@ async function mountTripDayAdministration(page, tripRecord) {
   if(window.ReiseNativeUI)await ReiseNativeUI.tripAdministration({host:tools,tripId:tripRecord.id,go,directAdmin:true});
   else mountWebTripAdministration(tools,tripRecord,true);
   if(!host.isConnected)return;
-  const stepsSection=[...tools.querySelectorAll('.trip-management-section')].find(section=>section.querySelector('summary')?.textContent==='Schrittwerte');
+  const stepsSection=[...tools.querySelectorAll('.trip-management-section')].find(section=>['Schrittwerte',window.ReiseI18n?.t('Schrittwerte')].includes(section.querySelector('summary')?.textContent));
   if(stepsSection)copy.append(stepsSection);
-  const guestsSection=[...tools.querySelectorAll('.trip-management-section')].find(section=>section.querySelector('summary')?.textContent==='Gäste & Einladungen');
+  const guestsSection=[...tools.querySelectorAll('.trip-management-section')].find(section=>['Gäste & Einladungen',window.ReiseI18n?.t('Gäste & Einladungen')].includes(section.querySelector('summary')?.textContent));
   if(guestsSection&&!guestsSection.hidden){
     const invite=document.createElement('button');invite.type='button';invite.className='edit-link';invite.textContent='Gäste-Einladungen';
     invite.onclick=()=>{const dialog=document.createElement('dialog');dialog.className='trip-day-guests-dialog';dialog.setAttribute('aria-label','Gäste-Einladungen');const close=document.createElement('button');close.type='button';close.className='edit-link';close.textContent='Schließen';close.onclick=()=>dialog.close();dialog.append(close,guestsSection);guestsSection.open=true;document.body.append(dialog);dialog.addEventListener('close',()=>{tools.append(guestsSection);dialog.remove();if(invite.isConnected)invite.focus();});dialog.showModal();};actions.append(invite);
@@ -2799,7 +2816,11 @@ function limitWorldMapZoom(map, L) {
     if (!viewport.x || !viewport.y) return;
     const snap = map.options.zoomSnap || 0.01;
     const zoom = Math.log2(Math.min(viewport.x / globe.x, viewport.y / globe.y));
-    map.setMinZoom(Math.floor(zoom / snap) * snap);
+    const minimum = Math.floor(zoom / snap) * snap;
+    // setMinZoom() would zoom up with an animation; its transition end resets the view to that
+    // zoom and undoes the trip fit made meanwhile (large screens: world view instead of trips).
+    if (map.getZoom() < minimum) map.setZoom(minimum, { animate: false });
+    map.setMinZoom(minimum);
   };
   map.on('resize', update);
   update();
@@ -2845,7 +2866,7 @@ async function renderWorldMap() {
     limitWorldMapZoom(map, L);
     addCoastalLabels(map, L);
     L.control.scale({ position: 'bottomright', metric: true, imperial: false, maxWidth: 120 }).addTo(map);
-    const tiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16, noWrap: true, attribution: 'Tiles &copy; Esri' });
+    const tiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16, noWrap: true, bounds: [[-85.0511, -180], [85.0511, 180]], attribution: 'Tiles &copy; Esri' });
     const revealMap = () => { if (node.isConnected) { node.classList.remove('is-loading'); node.closest('.world-page')?.querySelector('.world-map-loading')?.remove(); } };
     tiles.once('load', revealMap);
     tiles.addTo(map);
@@ -3083,7 +3104,7 @@ async function serverPlace(tripId, stopId) {
     back.onclick = () => go(`#trip/${tripRecord.id}`);
     const navigationUI=window.ReiseNativeUI||window.ReiseWebUI;
     if (navigationUI) { back.remove();navigationUI.bindPageSwipe?.(page,{previous:()=>{const target=stopsData.stops[stopIndex-1];if(target)go(`#trip/${tripRecord.id}/station/${target.id}`);},next:()=>{const target=stopsData.stops[stopIndex+1];if(target)go(`#trip/${tripRecord.id}/station/${target.id}`);}}); }
-    dayHeader.querySelector('h2').textContent = day ? new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(`${day}T12:00:00`)) : 'Ohne Aufnahmedatum';
+    dayHeader.querySelector('h2').textContent = day ? new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(`${day}T12:00:00`)) : 'Ohne Aufnahmedatum';
     page.querySelector('.station-day h2').textContent = 'STATIONEN DIESES TAGES';
     const summaryTarget = page.querySelector('.station-day-intro'); summaryTarget.textContent = 'Tageszusammenfassung wird geladen …';
     let summary = '', summaryData = {};
@@ -3127,7 +3148,7 @@ async function serverPlace(tripId, stopId) {
       if (String(entry.id) === String(stopId)) button.className = 'selected';
       button.type = 'button'; button.setAttribute('aria-current', String(entry.id) === String(stopId) ? 'true' : 'false');
       const time = document.createElement('small');
-      const when = entry.starts_at ? new Intl.DateTimeFormat('de-AT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(entry.starts_at.replace(' ','T'))) : '';
+      const when = entry.starts_at ? new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(entry.starts_at.replace(' ','T'))) : '';
       time.textContent = when; button.append(time);
       bindStationEntrySlideshow(button, tripRecord.id, entry.id);
       const row = document.createElement('div'); row.className = 'station-day-entry'; row.append(button);
@@ -3151,7 +3172,7 @@ async function serverPlace(tripId, stopId) {
       }
       const card = document.createElement('div'); card.className = 'station-photo-card'; card.append(link);
       const time = document.createElement('small'); time.className = 'station-media-time';
-      time.textContent = item.taken_at ? new Intl.DateTimeFormat('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(item.taken_at.replace(' ', 'T'))) : 'Ohne Aufnahmezeit';
+      time.textContent = item.taken_at ? new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(item.taken_at.replace(' ', 'T'))) : 'Ohne Aufnahmezeit';
       if (item.capture_source === 'manual') time.textContent += ' · manuell';
       card.append(time);
       if (canEditTrip()) {
@@ -3165,7 +3186,7 @@ async function serverPlace(tripId, stopId) {
       const days = new Map(); media.forEach(item => { const day = stopDay(item.taken_at) || 'Ohne Datum'; if (!days.has(day)) days.set(day, []); days.get(day).push(item); });
       days.forEach((items, day) => {
         const section = document.createElement('section'); section.className = 'station-photo-day';
-        const heading = document.createElement('h3'); heading.textContent = day === 'Ohne Datum' ? day : new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(`${day}T12:00:00`));
+        const heading = document.createElement('h3'); heading.textContent = day === 'Ohne Datum' ? day : new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date(`${day}T12:00:00`));
         const grid = document.createElement('div'); grid.className = 'station-photo-grid'; items.forEach(item => addPhoto(item, grid)); section.append(heading, grid); photoGrid.append(section);
       });
     } else media.forEach(item => addPhoto(item, photoGrid));

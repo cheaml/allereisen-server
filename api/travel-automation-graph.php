@@ -2,9 +2,10 @@
 declare(strict_types=1);
 require_once __DIR__.'/automation-graph.php';
 require_once __DIR__.'/travel-automation-scope.php';
+require_once __DIR__.'/automation-oauth-state.php';
 
 final class TravelGraph {
-    public const FIELDS='id,name,eTag,size,file,folder,root,parentReference,remoteItem,photo,video,image,location,webUrl,createdDateTime';
+    public const FIELDS='id,name,eTag,size,file,folder,root,parentReference,remoteItem,photo,video,image,location,webUrl,createdDateTime,fileSystemInfo';
     public function __construct(public readonly string $token,private ?Closure $transport=null){}
     public function request(string $method,string $path,?array $body=null):array {
         if(str_contains($path,'://')||str_starts_with($path,'/')||str_contains($path,"\r")||str_contains($path,"\n"))throw new RuntimeException('unsafe_graph_path');
@@ -36,9 +37,13 @@ final class TravelGraph {
     public function children(array $chain,?string $next,AutomationOneDriveScope $scope):array {
         $chain=$this->fresh($chain,$scope,true);$parent=$chain[0];$path='me/drive/items/'.rawurlencode($parent['id']).'/children?$top=100&$select='.self::FIELDS;
         if($next!==null){
-            $url=parse_url($next);$expected='/v1.0/me/drive/items/'.rawurlencode($parent['id']).'/children';$drive='/v1.0/drives/'.rawurlencode($parent['parentReference']['driveId']).'/items/'.rawurlencode($parent['id']).'/children';
-            if(($url['scheme']??null)!=='https'||($url['host']??null)!=='graph.microsoft.com'||isset($url['user'])||isset($url['pass'])||isset($url['fragment'])||isset($url['port'])||!in_array($url['path']??' ',[$expected,$drive],true))throw new RuntimeException('unsafe_pagination');
-            $path=substr($url['path'],6).'?'.($url['query']??'');
+            // Graph may return the next link with decoded ids ("!" in personal OneDrive ids) or
+            // another letter case for the drive id: compare decoded and case-insensitively.
+            $url=parse_url($next);$decoded=rawurldecode((string)($url['path']??''));
+            $allowed=['/v1.0/me/drive/items/'.$parent['id'].'/children','/v1.0/drives/'.$parent['parentReference']['driveId'].'/items/'.$parent['id'].'/children'];
+            $same=false;foreach($allowed as $candidate)if(strcasecmp($decoded,$candidate)===0)$same=true;
+            if(($url['scheme']??null)!=='https'||strtolower((string)($url['host']??''))!=='graph.microsoft.com'||isset($url['user'])||isset($url['pass'])||isset($url['fragment'])||isset($url['port'])||!$same||str_contains($decoded,'..'))throw new RuntimeException('unsafe_pagination');
+            $path='me/drive/items/'.rawurlencode($parent['id']).'/children?'.($url['query']??'');
         }
         $reply=$this->get($path);$items=$reply['value']??null;if(!is_array($items))throw new RuntimeException('invalid_graph_page');
         foreach($items as $item){if(isset($item['remoteItem']))continue;$scope->assertAllowed(array_merge([$item],$chain));}
@@ -61,9 +66,9 @@ function travel_connection(PDO $db,array $config,string $email):array {
     if(count($rows)!==1)throw new RuntimeException('automation_owner_connection_required');$owner=$rows[0];
     $raw=base64_decode($owner['refresh_token_enc'],true);if($raw===false||strlen($raw)<29)throw new RuntimeException('invalid_stored_connection');
     $refresh=openssl_decrypt(substr($raw,28),'aes-256-gcm',hex2bin($config['encryption_key']),OPENSSL_RAW_DATA,substr($raw,0,12),substr($raw,12,16));if($refresh===false)throw new RuntimeException('connection_decryption_failed');
-    $ch=curl_init('https://login.microsoftonline.com/common/oauth2/v2.0/token');curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>http_build_query(['client_id'=>$config['microsoft_client_id'],'client_secret'=>$config['microsoft_client_secret'],'grant_type'=>'refresh_token','refresh_token'=>$refresh,'scope'=>'openid profile offline_access User.Read Files.ReadWrite']),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>25]);$body=curl_exec($ch);$code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+    $ch=curl_init('https://login.microsoftonline.com/common/oauth2/v2.0/token');curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>http_build_query(['client_id'=>$config['microsoft_client_id'],'client_secret'=>$config['microsoft_client_secret'],'grant_type'=>'refresh_token','refresh_token'=>$refresh,'scope'=>automation_oauth_scope(true)]),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>25]);$body=curl_exec($ch);$code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
     $token=is_string($body)?json_decode($body,true):null;
-    if($code!==200||empty($token['access_token'])||!in_array('Files.ReadWrite',explode(' ',(string)($token['scope']??'')),true))throw new RuntimeException('automation_write_consent_required');
+    if($code!==200||empty($token['access_token'])||!automation_oauth_granted((string)($token['scope']??''),true))throw new RuntimeException('automation_read_consent_required');
     if(!empty($token['refresh_token'])){$iv=random_bytes(12);$cipher=openssl_encrypt($token['refresh_token'],'aes-256-gcm',hex2bin($config['encryption_key']),OPENSSL_RAW_DATA,$iv,$tag);if($cipher===false)throw new RuntimeException('connection_encryption_failed');$q=$db->prepare('UPDATE travel_automation_connections SET refresh_token_enc=? WHERE user_id=? AND refresh_token_enc=?');$q->execute([base64_encode($iv.$tag.$cipher),$owner['id'],$owner['refresh_token_enc']]);}
     return [$owner,(string)$token['access_token']];
 }

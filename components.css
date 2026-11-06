@@ -19,7 +19,7 @@
 .map-options-dialog label { display:grid; gap:8px; }
 .map-options-dialog select,.map-options-dialog button { width:100%; min-height:46px; margin:8px 0; padding:12px; border:1px solid var(--line); border-radius:14px; background:#e3ecdf; color:var(--pine); font:16px var(--font-body),sans-serif; }
 .route-direction-arrow span { width:22px; height:22px; border-radius:50%; background:#278e97; color:#fff; font:700 16px/22px Arial,sans-serif; text-shadow:none; box-shadow:0 1px 5px #102d2340; }
-.route-station-marker.station-active .station-symbol { outline:3px solid #d5f054; outline-offset:3px; }
+.route-station-marker.station-active .station-symbol { outline:3px solid var(--acid); outline-offset:3px; }
 .media-lightbox .media-lightbox-nav:has(svg) { display:flex; align-items:center; justify-content:center; width:46px; height:46px; min-width:46px; padding:10px; border-radius:50%; }
 .media-lightbox .media-lightbox-nav[hidden] { display:none!important; }
 .media-lightbox-nav svg { width:24px; height:24px; pointer-events:none; }
@@ -51,7 +51,7 @@
 .photo-marker button {
   width: 54px;
   height: 54px;
-  border: 3px solid rgb(213, 240, 84);
+  border: 3px solid var(--acid);
   border-radius: 50%;
   padding: 0px;
   overflow: hidden;
@@ -74,7 +74,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: rgb(213, 240, 84);
+  background: var(--acid);
   color: rgb(24, 33, 31);
   font: 700 10px / 18px var(--font-mono);
 }
@@ -184,7 +184,7 @@
 }
 
 .station-day button.selected {
-  background: rgb(213, 240, 84);
+  background: var(--acid);
   color: rgb(24, 33, 31);
   font-weight: 700;
 }
@@ -419,7 +419,7 @@
 .media-lightbox-fallback a {
   display: inline-block;
   margin-top: 18px;
-  color: rgb(213, 240, 84);
+  color: var(--acid);
 }
 
 .media-import-page {
@@ -478,7 +478,7 @@
 .manual-route-actions button{font:600 11px/1.4 system-ui,sans-serif;padding:10px;border:1px solid #26473e;border-radius:6px;background:#fff;color:#26473e;cursor:pointer}
 .manual-route-actions button:first-child{background:#26473e;color:#fff}
 .manual-route-actions button:disabled{opacity:.5;cursor:wait}
-.manual-route-handle{background:#d5f054;border:3px solid #26473e;border-radius:50%;box-shadow:0 1px 4px #0006}
+.manual-route-handle{background:var(--acid);border:3px solid #26473e;border-radius:50%;box-shadow:0 1px 4px #0006}
 .manual-route-handle.fixed{background:#26473e;border-color:#fff}
 .manual-route-hint{background:#fffffff0;color:#26473e;padding:6px 10px;border-radius:6px;font:12px/1.4 system-ui,sans-serif;max-width:240px}
 .station-management{padding:14px 0;border-top:1px solid #26473e33;margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
@@ -517,7 +517,7 @@
 }
 .media-slide-loading { position:absolute; inset:45% 16px auto; text-align:center; color:white; font:16px var(--font-body); }
 .media-lightbox:not(.media-map-enabled) .media-slide-story.media-slide-day { left:50%; top:50%; bottom:auto; transform:translate(-50%,-50%); width:min(640px,calc(100% - 140px)); max-height:70dvh; overflow:auto; }
-.media-map-toggle[aria-pressed="true"] { outline:2px solid #d5f054; }
+.media-map-toggle[aria-pressed="true"] { outline:2px solid var(--acid); }
 
 .media-lightbox.island-slideshow .media-lightbox-nav.next-page{top:50%;bottom:auto;right:calc(12px + var(--app-safe-right,env(safe-area-inset-right)));width:46px;height:64px;transform:translateY(-50%);font-size:0;padding:10px}
 .media-lightbox.island-slideshow .media-lightbox-nav.next-page:not(:has(svg))::after{content:'›';font:28px/1 sans-serif}

@@ -3,7 +3,10 @@ declare(strict_types=1);
 require_once __DIR__.'/travel-automation-plan.php';
 function travel_save(string $path,array $data):void {
     $temp=tempnam(dirname($path),'commit-');if($temp===false)throw new RuntimeException('state_write_failed');
-    try{$f=fopen($temp,'wb');if(!$f)throw new RuntimeException('state_write_failed');try{$body=json_encode($data,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);if(fwrite($f,$body)!==strlen($body)||!fflush($f))throw new RuntimeException('state_write_failed');if(function_exists('fsync')&&!fsync($f))throw new RuntimeException('state_write_failed');}finally{fclose($f);}chmod($temp,0600);if(!rename($temp,$path))throw new RuntimeException('state_commit_failed');}finally{if(is_file($temp))unlink($temp);}
+    try{$f=fopen($temp,'wb');if(!$f)throw new RuntimeException('state_write_failed');try{$body=json_encode($data,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);if(fwrite($f,$body)!==strlen($body)||!fflush($f))throw new RuntimeException('state_write_failed');if(function_exists('fsync')&&!fsync($f))throw new RuntimeException('state_write_failed');}finally{fclose($f);}chmod($temp,0600);
+        // A scanner or indexer can hold the target for a moment (seen on Windows): retry briefly.
+        $moved=false;for($try=0;$try<5&&!$moved;$try++){$moved=@rename($temp,$path);if(!$moved)usleep(100000);}
+        if(!$moved)throw new RuntimeException('state_commit_failed');}finally{if(is_file($temp))unlink($temp);}
 }
 
 function travel_window(array $s,DateTimeImmutable $now,?int $from=null):array {
@@ -12,14 +15,17 @@ function travel_window(array $s,DateTimeImmutable $now,?int $from=null):array {
 }
 function travel_reason(Throwable $e):string {return preg_match('/^[a-z][a-z0-9_-]{0,100}$/D',$e->getMessage())?$e->getMessage():'verification_failed_retry_or_review';}
 function travel_is_night(array $settings,DateTimeImmutable $now):bool{return (int)$now->setTimezone(new DateTimeZone($settings['timezone']))->format('G')<6;}
-function travel_job_priority(array $job):int{return in_array($job['status'],['copy-intent','copy-pending','copy-uncertain','verified'],true)?0:($job['status']==='discovered'?1:2);}
+/** Failures that concern a single original and become its review case. */
+const TRAVEL_ITEM_REVIEW_REASONS=['original_size_review','original_read_incomplete'];
+function travel_job_priority(array $job):int{return $job['status']==='discovered'?1:2;}
 
-/** Only a completed discovery cycle can authorize transfers. The copy and cleanup
- * ports retain independent durable content/version/catalog proofs. */
+/** Only a completed discovery cycle can authorize catalog registration. Originals
+ * stay in place: the register port verifies identity, version and content hash
+ * and binds the source item to its journey; nothing is copied or deleted. */
 final class TravelAutomationRunner {
     public function __construct(private array $settings,private string $private,private array $identity,
-        private Closure $children,private Closure $metadata,private Closure $transfer,
-        private Closure $cleanup,private Closure $backup,private Closure $folderExists){}
+        private Closure $children,private Closure $metadata,private Closure $register,
+        private Closure $backup){}
 
     public function run(array $source,DateTimeImmutable $now,bool $dryRun=false):array {
         $s=$this->settings;$path=$this->private.($dryRun?'/preview-state.json':'/state.json');
@@ -27,7 +33,7 @@ final class TravelAutomationRunner {
         $state=is_file($path)?json_decode((string)file_get_contents($path),true,256,JSON_THROW_ON_ERROR):[
             'schema'=>2,'identity'=>$identity,'activatedAt'=>$now->getTimestamp(),'events'=>[],'jobs'=>[],'trips'=>[],'seen'=>[],'excludedTargets'=>[]];
         if(($state['schema']??null)!==2||($state['identity']??null)!==$identity)throw new RuntimeException('state_identity_or_schema_changed');
-        $rules=hash('sha256',json_encode([$s['sourceFolder'],$s['targetFolder'],$s['home'],$s['radiusKm'],$s['timezone'],$s['startAt'],$s['backfillFrom']],JSON_THROW_ON_ERROR));
+        $rules=hash('sha256',json_encode([$s['sourceFolder'],$s['smallPhotos'],$s['home'],$s['extraHomes'],$s['radiusKm'],$s['timezone'],$s['startAt'],$s['backfillFrom']],JSON_THROW_ON_ERROR));
         if(($state['rules']??null)!==$rules){
             $first=!isset($state['rules']);$newBackfill=$s['backfillFrom']!==null&&($state['backfillFrom']??null)!==$s['backfillFrom'];
             $state['rulesFrom']=$newBackfill?travel_timestamp($s['backfillFrom']):($first?(travel_timestamp($s['startAt'])??$state['activatedAt']):$now->getTimestamp());
@@ -35,9 +41,8 @@ final class TravelAutomationRunner {
             // A configuration change affects future captures, never silently
             // reclassifies previously recorded home evidence or imported trips.
         }
-        $state['excludedTargets'][$s['targetFolder']]=true;
         $window=travel_window($s,$now,$state['rulesFrom']);
-        $result=['at'=>$now->format(DATE_ATOM),'status'=>'ready','through'=>$window['through'],'dryRun'=>$dryRun,'scanned'=>0,'candidates'=>0,'homeCaptures'=>0,'imported'=>0,'recycled'=>0,'review'=>0];
+        $result=['at'=>$now->format(DATE_ATOM),'status'=>'ready','through'=>$window['through'],'dryRun'=>$dryRun,'scanned'=>0,'candidates'=>0,'timed'=>0,'homeCaptures'=>0,'imported'=>0,'review'=>0];
         if(!$s['enabled']&&!$dryRun)return $result+['disabled'=>true];
         $scan=$state['scan']??[['chain'=>$source,'next'=>null,'items'=>[],'offset'=>0,'loaded'=>false,'pages'=>[]]];
         $persist=function()use(&$state,&$scan,$path){$state['scan']=$scan;travel_save($path,$state);};$persist();
@@ -63,13 +68,22 @@ final class TravelAutomationRunner {
                         $id=(string)$item['id'];$version=(string)($item['eTag']??'');$seen=$state['seen'][$id]??null;$known=$state['events'][$id]??null;
                         if($known&&$known['media']['version']!==$version){$state['seen'][$id]=['version'=>$version,'name'=>$item['name'],'review'=>true,'reason'=>'event-version-changed'];if(isset($state['jobs'][$id]))$state['jobs'][$id]['blocked']='event-version-changed';throw new RuntimeException('event-version-changed');}
                         elseif(!$known&&($seen===null||$seen['version']!==$version||($seen['retryAfter']??0)<=$now->getTimestamp()||($seen['rules']??null)!==$rules)){
-                            $readCount++;$read=($this->metadata)($chain);$current=$read['chain'][0];$version=(string)($current['eTag']??'');$m=array_replace(automation_graph_photo($current,$this->identity['account']),$read['metadata']);
+                            $readCount++;
+                            try{$read=($this->metadata)($chain);}catch(Throwable $itemError){
+                                // One unreadable or oversized original is a review case for that file only;
+                                // it must not stop the scan of all other captures.
+                                if(!in_array(travel_reason($itemError),TRAVEL_ITEM_REVIEW_REASONS,true))throw $itemError;
+                                $state['seen'][$id]=['name'=>$item['name'],'version'=>$version,'rules'=>$rules,'review'=>true,'reason'=>travel_reason($itemError),'retryAfter'=>$now->getTimestamp()+7*86400];
+                                $scan[0]['offset']++;$persist();continue;
+                            }
+                            $current=$read['chain'][0];$version=(string)($current['eTag']??'');$m=array_replace(automation_graph_photo($current,$this->identity['account']),$read['metadata']);$m['fileCreatedAt']=$current['fileSystemInfo']['createdDateTime']??null;
                             $decision=travel_classify($m,$s);$stamp=$decision['capture']??null;
+                            if(($decision['captureSource']??null)==='file-created'){$m['takenAt']=gmdate('Y-m-d\TH:i:s\Z',$stamp);$m['captureSource']='file-created';}
                             $state['seen'][$id]=['name'=>$item['name'],'version'=>$version,'rules'=>$rules,'review'=>$decision['outcome']==='review','reason'=>$decision['reason'],'retryAfter'=>$now->getTimestamp()+86400];
-                            if($stamp!==null&&$stamp>=$window['from']&&$stamp<$window['until']&&in_array($decision['outcome'],['home','away'],true)){
+                            if($stamp!==null&&$stamp>=$window['from']&&$stamp<$window['until']&&in_array($decision['outcome'],['home','away','timed'],true)){
                                 $extension=strtolower(pathinfo($item['name'],PATHINFO_EXTENSION));if(!preg_match('/^[a-z0-9]{1,10}$/D',$extension))throw new RuntimeException('invalid_media_extension');
-                                $state['events'][$id]=['outcome'=>$decision['outcome'],'capture'=>$stamp,'media'=>$m,'chain'=>$read['chain'],'place'=>$read['place']??'Reise','extension'=>$extension,'sourceFolder'=>$s['sourceFolder'],'targetBase'=>$s['targetFolder'],'storageMode'=>$s['storageMode']??'copy'];
-                                $result[$decision['outcome']==='home'?'homeCaptures':'candidates']++;
+                                $state['events'][$id]=['outcome'=>$decision['outcome'],'capture'=>$stamp,'media'=>$m,'chain'=>$read['chain'],'place'=>$read['place']??'Reise','extension'=>$extension,'sourceFolder'=>$s['sourceFolder'],'storageMode'=>'reference'];
+                                $result[['home'=>'homeCaptures','timed'=>'timed'][$decision['outcome']]??'candidates']++;
                             }elseif($stamp!==null&&$stamp>=$window['until'])$state['seen'][$id]['retryAfter']=$window['next'];
                         }
                     }
@@ -78,9 +92,9 @@ final class TravelAutomationRunner {
             }catch(Throwable $e){$result['status']='discovery-blocked';$result['reason']=travel_reason($e);$blocked=true;$persist();break;}
         }
         if(!$scan&&!$blocked){
-            $plan=travel_plan($state['events'],$state['trips'],$this->folderExists);
+            $plan=travel_plan($state['events'],$state['trips'],['quietDays'=>$s['quietDays'],'homeBreakHours'=>$s['homeBreakHours']]);
             foreach($plan['assignments'] as $id=>$tripId){
-                if(!isset($state['jobs'][$id])){$state['events'][$id]['tripId']=$tripId;$state['jobs'][$id]=$state['events'][$id]+['tripId'=>$tripId,'status'=>'discovered'];}
+                if(!isset($state['jobs'][$id])){$state['events'][$id]['tripId']=$tripId;$state['jobs'][$id]=$state['events'][$id]+['tripId'=>$tripId,'status'=>'discovered','stationRadiusKm'=>$s['stationRadiusKm']];}
                 if(($state['jobs'][$id]['blocked']??null)==='late-home-splits-existing-trip'||($state['jobs'][$id]['blocked']??null)==='multiple-existing-trips-in-segment')unset($state['jobs'][$id]['blocked']);
             }
             foreach($plan['review'] as $id=>$reason){$state['seen'][$id]['review']=true;$state['seen'][$id]['reason']=$reason;if(isset($state['jobs'][$id]))$state['jobs'][$id]['blocked']=$reason;}
@@ -89,13 +103,10 @@ final class TravelAutomationRunner {
             $worked=0;$backedUp=false;
             foreach($state['jobs'] as $id=>&$job){
                 if($dryRun||$worked>=$s['mediaPerRun']||microtime(true)-$started>=$s['maxRunSeconds'])break;
-                if(isset($job['blocked'])||$job['status']==='imported'&&(!$s['cleanupEnabled']||($job['cleanupStatus']??null)==='recycled'))continue;
+                if(isset($job['blocked'])||$job['status']==='imported')continue;
                 $worked++;try{
-                    if($job['status']!=='imported'){
-                        if(!$backedUp){($this->backup)($window['through']);$backedUp=true;}
-                        $reply=($this->transfer)($job,$state['trips'][$job['tripId']]);$job['status']=$reply['status'];$job['reason']=$reply['reason']??null;if($job['status']==='imported')$result['imported']++;
-                    }
-                    if($job['status']==='imported'&&$s['cleanupEnabled']&&($job['storageMode']??'copy')!=='reference'){$reply=($this->cleanup)($job,$state['trips'][$job['tripId']]);$job['cleanupStatus']=$reply['status'];$job['cleanupReason']=$reply['reason']??null;if($reply['status']==='recycled')$result['recycled']++;}
+                    if(!$backedUp){($this->backup)($window['through']);$backedUp=true;}
+                    $reply=($this->register)($job,$state['trips'][$job['tripId']]);$job['status']=$reply['status'];$job['reason']=$reply['reason']??null;if($job['status']==='imported')$result['imported']++;
                 }catch(Throwable $e){$job['reason']=travel_reason($e);}
                 $job['lastAttempt']=$now->format(DATE_ATOM);$persist();
             }unset($job);
@@ -105,15 +116,14 @@ final class TravelAutomationRunner {
         $result['scanComplete']=$scan===null||$scan===[];
         $result['pending']=count(array_filter($state['jobs'],static fn($j)=>$j['status']!=='imported'));
         $issues=[];foreach($state['seen'] as $id=>$e)if($e['review']??false)$issues[$id]=true;
-        foreach($state['jobs'] as $id=>$j)if(isset($j['blocked'])||$j['status']==='review'||in_array($j['cleanupStatus']??null,['review','blocked'],true))$issues[$id]=true;
+        foreach($state['jobs'] as $id=>$j)if(isset($j['blocked'])||$j['status']==='review')$issues[$id]=true;
         $result['review']=count($issues);
-        $result['pendingCleanup']=$s['cleanupEnabled']?count(array_filter($state['jobs'],static fn($j)=>$j['status']==='imported'&&($j['cleanupStatus']??null)!=='recycled')):0;
-        $result['planned']=[];foreach($state['jobs'] as $id=>$job)$result['planned'][]=['source'=>$job['media']['name'],'trip'=>$state['trips'][$job['tripId']]['title'],'folder'=>$state['trips'][$job['tripId']]['targetPath'],'status'=>$job['status'],'cleanupStatus'=>$job['cleanupStatus']??null,'review'=>$job['blocked']??$job['reason']??$job['cleanupReason']??null];
+        $result['planned']=[];foreach($state['jobs'] as $id=>$job)$result['planned'][]=['source'=>$job['media']['name'],'trip'=>$state['trips'][$job['tripId']]['title'],'tripId'=>$job['tripId'],'status'=>$job['status'],'review'=>$job['blocked']??$job['reason']??null];
         $result['homeEvidence']=count(array_filter($state['events'],static fn($e)=>$e['outcome']==='home'));
         travel_save($this->private.($dryRun?'/preview-status.json':'/status.json'),$result);
         $lines=['# Reiseautomatik – '.($dryRun?'Probelauf':'Journal'),'','Stand: '.$now->format(DATE_ATOM),'Verarbeitet bis einschließlich '.$window['through'].' ('.$s['timezone'].').',''];
         foreach($state['seen'] as $entry)if($entry['review']??false)$lines[]=str_replace(["\r","\n"],' ',($entry['name']??'Datei').' | '.$entry['reason']);
-        foreach($result['planned'] as $entry)$lines[]=str_replace(["\r","\n"],' ',$entry['source'].' | '.$entry['folder'].' | '.$entry['status'].' | '.($entry['cleanupStatus']??'').' | '.($entry['review']??''));
+        foreach($result['planned'] as $entry)$lines[]=str_replace(["\r","\n"],' ',$entry['source'].' | '.$entry['trip'].' | '.$entry['status'].' | '.($entry['review']??''));
         if(file_put_contents($this->private.($dryRun?'/preview.md':'/journal.md'),implode("\n",$lines)."\n",LOCK_EX)===false)throw new RuntimeException('report_write_failed');
         return $result;
     }

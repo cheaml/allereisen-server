@@ -29,12 +29,13 @@ async function renderMediaImporter({ app, access, go, onImported }) {
   let sources, csrf, running = false, browsePath = '', browseVersion = 0, browsing = false;
   const update = () => {
     const provider = fields.provider.value, source = sources.find(s => s.id === provider);
-    page.querySelector('.source-microsoft-help').hidden = provider !== 'onedrive';
+    page.querySelector('.source-microsoft-help').hidden = provider !== 'onedrive' || !!source.connected;
     page.querySelector('.source-folder').hidden = false;
     fields.folder.required = provider !== 'dropbox';
     fields.title.required = !fields.trip.value; fields.title.disabled = !!fields.trip.value;
     connect.hidden = provider === 'local' || !source.configured || (source.connected && provider !== 'onedrive');
-    connect.textContent = provider.toUpperCase() + ' VERBINDEN';
+    // Already connected OneDrive: the button only switches to another Microsoft account.
+    connect.textContent = provider === 'onedrive' && source.connected ? 'ANDERES ONEDRIVE-KONTO VERBINDEN' : provider.toUpperCase() + ' VERBINDEN';
     submit.disabled = running || browsing || !source.configured || !source.connected;
     browseButton.hidden = provider !== 'onedrive';
     browseButton.disabled = running || !source.configured || !source.connected;

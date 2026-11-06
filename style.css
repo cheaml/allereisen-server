@@ -907,7 +907,7 @@ code {
   padding: 25px 28px;
   background: rgba(244, 240, 232, 0.91);
   backdrop-filter: blur(5px);
-  box-shadow: rgb(213, 240, 84) 5px 6px 0px;
+  box-shadow: var(--acid) 5px 6px 0px;
 }
 
 .world-caption h1 {
@@ -937,7 +937,7 @@ code {
   color: rgb(255, 255, 255);
   padding: 8px 10px;
   font: 600 11px var(--font-mono);
-  box-shadow: rgb(213, 240, 84) 3px 3px 0px;
+  box-shadow: var(--acid) 3px 3px 0px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -976,12 +976,12 @@ code {
 }
 
 .world-caption h1::before {
-  content: "Unsere ";
+  content: "Alle";
   font: 500 clamp(34px, 4vw, 56px) / 1.03 var(--font-heading);
 }
 
 .world-caption h1 em::after {
-  content: "Reisen.";
+  content: "Reisen";
   font: italic 500 clamp(34px, 4vw, 56px) / 1.03 var(--font-heading);
   color: var(--pine);
 }
@@ -1016,7 +1016,7 @@ code {
   padding: 18px 22px;
   background: rgba(244, 240, 232, 0.91);
   backdrop-filter: blur(5px);
-  box-shadow: rgb(213, 240, 84) 5px 6px 0px;
+  box-shadow: var(--acid) 5px 6px 0px;
 }
 
 .world-trip-list p {
@@ -1179,7 +1179,7 @@ code {
   color: var(--route-color);
   font: 500 9px var(--font-mono);
   letter-spacing: 0.04em;
-  box-shadow: rgb(213, 240, 84) 1px 1px 0px;
+  box-shadow: var(--acid) 1px 1px 0px;
 }
 
 @media (max-width: 620px) {
@@ -1384,7 +1384,7 @@ code {
   display: block;
   margin: 4px 0px 7px;
   padding: 10px 12px;
-  background: rgb(213, 240, 84);
+  background: var(--acid);
   border: 1px solid rgb(24, 33, 31);
   color: rgb(24, 33, 31);
   font: 600 10px var(--font-mono);
@@ -1461,7 +1461,7 @@ code {
   padding: 10px 12px;
   background: rgba(244, 240, 232, 0.933);
   border: 1px solid var(--line);
-  box-shadow: rgb(213, 240, 84) 3px 3px 0px;
+  box-shadow: var(--acid) 3px 3px 0px;
   color: var(--pine);
   font: 600 10px var(--font-mono);
   letter-spacing: 0.08em;
@@ -1882,7 +1882,7 @@ code {
   top: 9px;
   right: 9px;
   padding: 5px 8px;
-  background: rgb(213, 240, 84);
+  background: var(--acid);
   color: rgb(24, 33, 31);
   font: 700 11px / 1 var(--font-mono), monospace;
   letter-spacing: 0.08em;
@@ -1984,7 +1984,7 @@ code {
 }
 
 .station-name-suggestion:hover, .station-name-suggestion:focus-visible {
-  background: rgb(213, 240, 84);
+  background: var(--acid);
 }
 
 .station-name-suggestions a {
@@ -2074,15 +2074,15 @@ code {
 }
 
 .photo-marker.station-first button {
-  border-color: rgb(213, 240, 84);
+  border-color: var(--acid);
   box-shadow: rgb(24, 33, 31) 0px 0px 0px 3px, rgb(244, 240, 232) 0px 0px 0px 6px, rgba(0, 0, 0, 0.667) 0px 8px 20px;
   transform: scale(1.22);
 }
 
 .world-stop-marker.station-first {
   border-color: rgb(24, 33, 31);
-  background: rgb(213, 240, 84);
-  box-shadow: rgb(213, 240, 84) 0px 0px 0px 3px, rgb(244, 240, 232) 0px 0px 0px 6px, rgba(0, 0, 0, 0.6) 0px 5px 12px;
+  background: var(--acid);
+  box-shadow: var(--acid) 0px 0px 0px 3px, rgb(244, 240, 232) 0px 0px 0px 6px, rgba(0, 0, 0, 0.6) 0px 5px 12px;
 }
 
 .photo-marker.station-first::after, .world-stop-marker.station-first::after {
@@ -2096,7 +2096,7 @@ code {
   border: 1px solid rgb(244, 240, 232);
   border-radius: 3px;
   background: rgb(24, 33, 31);
-  color: rgb(213, 240, 84);
+  color: var(--acid);
   white-space: nowrap;
   font: 700 10px / 1 var(--font-mono), monospace;
   letter-spacing: 0.08em;
@@ -2512,7 +2512,7 @@ code {
 }
 
 .route-station-marker.marker-photo .station-symbol {
-  border: 3px solid rgb(213, 240, 84);
+  border: 3px solid var(--acid);
 }
 
 .route-station-marker img {
@@ -2522,7 +2522,7 @@ code {
 }
 
 .route-station-marker.station-first .station-symbol {
-  background: rgb(213, 240, 84);
+  background: var(--acid);
   color: rgb(24, 33, 31);
   border-color: rgb(24, 33, 31);
   box-shadow: rgb(255, 255, 255) 0px 0px 0px 2px, rgba(0, 0, 0, 0.6) 0px 2px 6px;
@@ -2549,7 +2549,7 @@ code {
 .route-station-marker.station-first::after {
   content: "START";
   bottom: calc(100% + 5px);
-  color: rgb(213, 240, 84);
+  color: var(--acid);
 }
 
 .route-station-marker.station-last::after {
@@ -2563,7 +2563,7 @@ code {
 }
 
 .route-station-marker:focus-visible .station-symbol {
-  outline: rgb(213, 240, 84) solid 3px;
+  outline: var(--acid) solid 3px;
   outline-offset: 4px;
 }
 
@@ -3343,7 +3343,7 @@ html.media-slideshow-open, body.media-slideshow-open {
 
 .day-station-dot.active {
   border: 4px solid rgb(250, 251, 246);
-  background: rgb(213, 240, 84);
+  background: var(--acid);
   box-shadow: rgba(111, 146, 62, 0.565) 0px 0px 0px 2px;
 }
 
@@ -3721,3 +3721,11 @@ html.media-slideshow-open, body.media-slideshow-open {
   text-shadow: rgb(250, 251, 246) 0px 0px 3px, rgb(250, 251, 246) 0px 0px 2px;
   transform-origin: center center;
 }
+
+/* English interface (html lang="en", set by i18n.js): texts that live in CSS. */
+html:lang(en) .world-caption p:last-child::after { content: "Choose a stop and discover its trip."; }
+html:lang(en) .photo-marker.station-first::after, html:lang(en) .world-stop-marker.station-first::after, html:lang(en) .route-station-marker.station-first::after { content: "START"; }
+html:lang(en) .route-station-marker.station-last::after { content: "END"; }
+html:lang(en) .route-station-marker.station-first.station-last::after { content: "START / END"; }
+html:lang(en) .station-page .station-day-intro:not(:empty)::before, html:lang(en) .media-lightbox .media-slide-story.media-slide-day::before { content: "DAY SUMMARY"; }
+html:lang(en) .media-lightbox .media-slide-story:not(.media-slide-end)::before { content: "NOTE ON THIS STOP"; }

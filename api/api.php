@@ -353,7 +353,7 @@ if ($action==='ai-proposals' && $_SERVER['REQUEST_METHOD']==='POST') {
   json(['proposals'=>$proposals]);
 }
 if ($action==='import' && $_SERVER['REQUEST_METHOD']==='POST') {
-  $userId=require_admin($db);
+  $userId=require_importer($db); // import right (admins have it implicitly); appending only to own trips (source_trip)
   $title=trim((string)($input['title']??'')); $folder=trim((string)($input['source_folder']??''));
   $existingTrip=(string)($input['trip']??'');
   if($existingTrip!=='')$title=(string)source_trip($db,$userId,'','onedrive','',$existingTrip)['title'];
