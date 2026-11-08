@@ -37,3 +37,89 @@ body.native-ios:has(.trip-day-heading):not(.media-slideshow-open)::before{backgr
 :root body .native-source-choice[aria-pressed="true"]{border-color:var(--action);background:var(--k3-current)}
 :root body :is(.native-server-settings>button,.native-health-settings>button,.native-server-admin button,.native-info-links>button):not(.danger){border-color:var(--action);background:var(--paper);color:var(--action)}
 :root body #worldMap.leaflet-container{background:#002e44}
+
+/* Settings for all trips, one-line account status and the "Reise bearbeiten" sheet (0.3.3). */
+:root body .settings-intro{max-width:44rem;color:var(--ink);opacity:.8;margin:.25rem 0 1rem}
+:root body .settings-group{font:700 12px/1.2 var(--font-body,system-ui),sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:#6b5a4c;margin:1.6rem 0 .5rem;border:0}
+:root body .connection-note{font-weight:600;margin:.25rem 0 .5rem}
+:root body .connection-note[data-state="ok"]::before{content:"● ";color:#3f8f5f}
+:root body .connection-note[data-state="off"]::before{content:"● ";color:#b9a58f}
+:root body .server-step{border-top:1px solid #f0e2cc;margin-top:.9rem;padding-top:.6rem}
+:root body .server-step h3{font:700 14px/1.3 var(--font-body,system-ui),sans-serif;margin:0 0 .4rem}
+:root body .server-step-item{margin:.35rem 0 .7rem}
+:root body .server-step-item>.hint{margin:.25rem 0 0;font-size:13px;opacity:.85}
+:root body .server-step-item:has(>button[hidden]){display:none}
+:root body .archive-account-line{margin:.1rem 0 1rem}
+:root body .archive-account-button,:root body .archive-account-line>a{all:unset;cursor:pointer;font-size:13px;color:#5e4f43;border-bottom:1px dotted #b9a58f}
+:root body .archive-account-line[data-state="warning"] .archive-account-button{color:#a3402c;border-color:#a3402c}
+:root body .library-settings-open{margin-left:auto}
+:root body :is(.trip-edit-open,.library-settings-open){position:fixed;z-index:1200;top:calc(var(--native-safe-top,0px) + 12px);right:calc(var(--native-safe-right,0px) + 12px);border:1px solid var(--action);background:var(--paper);color:var(--action);border-radius:999px;padding:9px 14px;font:700 13px/1.1 var(--font-body,system-ui),sans-serif;box-shadow:0 4px 14px rgba(43,36,31,.18);cursor:pointer}
+:root body .trip-edit-open[aria-pressed="true"]{background:var(--action);color:#fff}
+:root body.trip-editing::after{content:"";position:fixed;inset:0;border:3px solid var(--action);pointer-events:none;z-index:1100}
+:root body .trip-editor-sheet{width:min(640px,100vw);max-width:100vw;max-height:88vh;margin:auto auto 0;border:0;border-radius:22px 22px 0 0;background:var(--paper);color:var(--ink);padding:16px 20px calc(var(--native-safe-bottom,0px) + 24px);box-sizing:border-box;overflow:auto}
+@media (min-width:760px){:root body .trip-editor-sheet{margin:auto;border-radius:22px}}
+:root body .trip-editor-sheet::backdrop{background:rgba(43,36,31,.45)}
+:root body .trip-editor-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+:root body .trip-editor-head h2{font-family:var(--font-display,'Playfair Display'),serif;margin:0;font-size:1.6rem}
+:root body .trip-editor-subtitle{margin:.2rem 0 .8rem;color:#5e4f43}
+:root body .trip-editor-mode{background:#fffaf2;border:1px solid #e2c59c;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+:root body .trip-editor-mode label{font-weight:700;display:flex;gap:8px;align-items:center}
+:root body .trip-editor-tools .trip-management{border:0;padding:0;margin:0;background:none}
+:root body .trip-editor-tools .trip-management-section{margin:0 0 10px}
+:root body .trip-editor-danger{border-top:1px solid #e2c59c;margin-top:14px;padding-top:12px}
+:root body .trip-editor-delete{color:#a3402c!important;border-color:#a3402c!important}
+:root body .media-remove-bar{position:sticky;top:calc(var(--native-safe-top,0px) + 8px);z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;background:#fffaf2;border:1px solid var(--action);border-radius:14px;padding:10px 14px;margin:0 0 12px}
+:root body .media-remove-bar .hint{flex-basis:100%;margin:0;font-size:12px;opacity:.85}
+:root body .media-remove-count{font-weight:700;margin-right:auto}
+:root body .media-remove-pick{display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0;cursor:pointer}
+:root body .media-remove-pick input{width:20px;height:20px;accent-color:var(--action)}
+:root body .media-move-dialog{border:0;border-radius:18px;padding:22px;max-width:min(440px,calc(100vw - 32px));box-shadow:0 18px 50px rgba(0,0,0,.25)}
+:root body .media-move-dialog::backdrop{background:rgba(20,16,12,.45)}
+:root body .media-move-dialog h2{margin:0 0 8px;font-size:20px}
+:root body .media-move-dialog label{display:grid;gap:6px;font-weight:700;margin:12px 0 6px}
+:root body .media-move-dialog select{font:inherit;padding:10px;border-radius:10px;border:1px solid #c9bfb2;max-width:100%}
+:root body .media-move-dialog .hint{font-size:12px;opacity:.85}
+:root body .media-move-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:14px}
+/* "Alle Reisen": sign-in status in the row of the ÜBERSICHT label */
+:root body .library-eyebrow-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 14px;margin-bottom:.35rem}
+:root body .library-eyebrow-row>.eyebrow,:root body .library-eyebrow-row>.archive-account-line{margin:0}
+:root body .library-eyebrow-row .archive-account-button{font-size:12px}
+/* 0.3.3: the bottom menu yields while a map is moved; a handle brings it back at once. */
+/* 0.3.4: like the slideshow map, everything slides to its edge and leaves a tab ("Lasche"): the menu down to the
+   handle, the floating buttons to the right edge. Opacity also drops, so native map cut-outs vanish at once. */
+:root body :is(.native-journey-nav,.journey-nav,.trip-edit-open,.library-settings-open){transition:translate .22s ease,opacity .22s ease,visibility 0s linear 0s}
+:root body.menu-yielding :is(.native-journey-nav,.journey-nav,.trip-edit-open,.library-settings-open){opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:translate .22s ease,opacity .22s ease,visibility 0s linear .22s}
+:root body.menu-yielding :is(.native-journey-nav,.journey-nav){translate:0 calc(100% + 24px)}
+:root body.menu-yielding :is(.trip-edit-open,.library-settings-open){translate:calc(100% + 24px) 0}
+.menu-yield-tab{display:none}
+body.menu-yielding:has(.trip-edit-open,.library-settings-open) .menu-yield-tab{display:flex;position:fixed;z-index:1201;top:calc(var(--native-safe-top,0px) + 12px);right:0;align-items:center;justify-content:center;width:26px;height:40px;padding:0;border:0;border-radius:14px 0 0 14px;background:#5b4636;color:#f4f0e8;font:700 20px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 3px 12px #0003;touch-action:pan-y}
+body.menu-yielding .menu-yield-tab::before{content:"‹"}
+.menu-yield-handle{display:none}
+body.menu-yielding .menu-yield-handle{display:flex;position:fixed;z-index:2501;left:50%;bottom:calc(6px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)));transform:translateX(-50%);align-items:center;justify-content:center;width:72px;height:28px;padding:0;border:0;border-radius:14px;background:#5b4636;cursor:pointer;box-shadow:0 3px 12px #0003}
+body.menu-yielding .menu-yield-handle::before{content:"";width:36px;height:5px;border-radius:3px;background:#f4f0e8}
+/* 0.3.3: the slideshow map is switched with a tab at the right edge ("‹ Karte") and "›" in the map. */
+html body .media-lightbox .media-map-tab{display:none!important}
+/* The tab sits at the height of the folded map: bottom corner on wide screens, above the playback island on
+   phones (iPhone: 104px, see native-ui.css). On phones the map itself also stays above the island. */
+@media (max-width:699px){
+:root body:not(.native-ios) .media-lightbox :is(.media-station-intro-map,.media-slide-day-map,.media-slide-day-map.media-slide-day-map-full){bottom:calc(104px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)))!important}
+}
+:root{--slide-map-bottom:calc(12px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)))}
+@media (max-width:699px){:root{--slide-map-bottom:calc(104px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)))}}
+body.native-ios{--slide-map-bottom:calc(104px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)))}
+html body .media-lightbox.island-slideshow:not(.media-map-enabled)>.media-map-tab{display:flex!important;position:absolute;z-index:13;right:0;bottom:var(--slide-map-bottom);align-items:center;min-height:44px;padding:0 14px 0 16px;border:1px solid #ffffff45;border-right:0;border-radius:22px 0 0 22px;background:#18211fe8;color:#fff;font:600 14px/1 system-ui,sans-serif;cursor:pointer;touch-action:pan-y}
+.media-lightbox .media-map-fold{position:absolute;z-index:1000;top:8px;right:8px;left:auto;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:1px solid #ffffff60;border-radius:50%;background:#18211fe8;color:#fff;font:22px/1 system-ui,sans-serif;cursor:pointer}
+/* 0.3.3: larger slideshow map (it can be folded away). Phones: full width above the playback island. */
+:root body:not(.native-ios) .media-lightbox.island-slideshow :is(.media-station-intro-map,.media-slide-day-map,.media-slide-day-map.media-slide-day-map-full){width:min(560px,calc(100% - 32px))!important;height:min(380px,46dvh)!important}
+@media (max-width:699px){:root body:not(.native-ios) .media-lightbox.island-slideshow :is(.media-station-intro-map,.media-slide-day-map,.media-slide-day-map.media-slide-day-map-full){width:calc(100% - 24px)!important;height:min(320px,42dvh)!important}}
+/* 0.3.3: "Einstellungen" floats top right like "Reise bearbeiten" (same look, both yield while scrolling). */
+:root body .library-settings-open{margin:0;min-height:0;width:auto;text-transform:none;letter-spacing:normal}
+:root body .library-settings-open:hover,:root body .trip-edit-open:hover{background:var(--action);color:#fff}
+/* Phone landscape (all platforms): large slideshow map right of the playback island; tab at its height. */
+@media (orientation:landscape) and (max-height:500px){
+:root body:not(.native-ios) .media-lightbox.island-slideshow :is(.media-station-intro-map,.media-slide-day-map,.media-slide-day-map.media-slide-day-map-full){width:min(46vw,calc(50vw - 110px))!important;height:calc(100dvh - 76px)!important;bottom:calc(12px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)))!important}
+:root,body.native-ios{--slide-map-bottom:calc(12px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)))}
+}
+:root body .library-head:has(.library-settings-open){padding-top:44px}
+/* 0.3.4: the floating "Einstellungen" button also sits top right on the world map; the trip count moves below it. */
+:root body .world-page:has(> .library-settings-open) .world-search-status{top:calc(var(--native-safe-top,0px) + 62px)}

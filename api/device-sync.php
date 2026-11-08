@@ -21,8 +21,25 @@ if($action==='switch-account') {
     $pending=$_SESSION['device_sync_pending']??null;
     if(!$pending||$pending['expires']<time())json(['error'=>'Geräteanmeldung abgelaufen. Bitte in der App erneut starten.'],410);
     session_regenerate_id(true);
+    // The person deliberately picks another account: drop the app's account suggestion.
+    $pending['login_hint']='';
     $_SESSION=['device_sync_pending'=>$pending];
     header('Location: login.php?device_sync=1&select=1',true,303);exit;
+}
+// One-time link from the app (action web-link): signs this browser in as the app's account and
+// opens one fixed server page. Single use, valid two minutes, never carries Microsoft tokens.
+if($action==='web-login') {
+    $code=(string)($_GET['code']??'');
+    $fail=static function(string $message,int $status):never{http_response_code($status);header('Content-Type: text/html; charset=utf-8');echo '<!doctype html><html lang="de"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AlleReisen</title><body style="font:18px system-ui;max-width:32rem;margin:3rem auto;padding:1rem;background:#f8eddc;color:#2b241f"><h1>Link nicht mehr gültig</h1><p>'.htmlspecialchars($message,ENT_QUOTES,'UTF-8').'</p></body></html>';exit;};
+    if(!preg_match('/^[a-f0-9]{64}$/D',$code))$fail('Bitte die Seite in der App erneut öffnen.',400);
+    $q=$db->prepare("SELECT user_id,challenge FROM device_sync_codes WHERE code_hash=? AND expires_at>NOW() AND challenge LIKE 'web:%'");$q->execute([hash('sha256',$code)]);$row=$q->fetch();
+    // Single use: only the request that actually deletes the row may sign in.
+    if($row){$q=$db->prepare('DELETE FROM device_sync_codes WHERE code_hash=?');$q->execute([hash('sha256',$code)]);if($q->rowCount()!==1)$row=false;}
+    $target=$row?(DEVICE_SYNC_WEB_TARGETS[substr((string)$row['challenge'],4)]??null):null;
+    if(!$row||$target===null)$fail('Der Link gilt nur einmal und zwei Minuten. Bitte die Seite in der App erneut öffnen.',410);
+    if(!device_sync_user_allowed($db,(int)$row['user_id']))$fail('Dieses Konto benötigt eine Microsoft-Anmeldung.',403);
+    complete_login((int)$row['user_id']);
+    header('Location: '.rtrim((string)$config['app_url'],'/').'/'.$target,true,303);exit;
 }
 if($action==='authorize') {
     if($_SERVER['REQUEST_METHOD']==='GET'&&isset($_GET['challenge'])) {
@@ -30,11 +47,25 @@ if($action==='authorize') {
         if(!preg_match('/^[A-Za-z0-9_-]{43}$/D',$challenge)||!preg_match('/^[A-Za-z0-9_-]{32,128}$/D',$state))json(['error'=>'Ungültige Geräteanmeldung.'],422);
         $redirect=(string)($_GET['redirect']??'reiseapp://auth');
         if(!device_sync_redirect_valid($redirect))json(['error'=>'Ungültige Rücksprungadresse.'],422);
-        $_SESSION['device_sync_pending']=['challenge'=>$challenge,'state'=>$state,'redirect'=>$redirect,'expires'=>time()+600,'csrf'=>bin2hex(random_bytes(32))];
+        // The app passes the Microsoft account it uses for OneDrive, so both sign-ins use the same account.
+        $hint=strtolower(trim((string)($_GET['login_hint']??'')));
+        if($hint!==''&&(strlen($hint)>254||!filter_var($hint,FILTER_VALIDATE_EMAIL)))$hint='';
+        $_SESSION['device_sync_pending']=['challenge'=>$challenge,'state'=>$state,'redirect'=>$redirect,'expires'=>time()+600,'csrf'=>bin2hex(random_bytes(32)),'login_hint'=>$hint];
     }
     $pending=$_SESSION['device_sync_pending']??null;
     if(!$pending||$pending['expires']<time())json(['error'=>'Geräteanmeldung abgelaufen. Bitte in der App erneut starten.'],410);
     if(empty($_SESSION['user_id'])) {header('Location: login.php?device_sync=1',true,303);exit;}
+    // Browser still signed in with another account than the app's OneDrive account: sign in again
+    // with the app's account (once; if Microsoft returns another account, the page below shows it).
+    $hint=(string)($pending['login_hint']??'');
+    if($hint!==''&&empty($pending['hint_checked'])){
+        $q=$db->prepare('SELECT email FROM users WHERE id=?');$q->execute([(int)$_SESSION['user_id']]);
+        $pending['hint_checked']=true;$_SESSION['device_sync_pending']=$pending;
+        if(strcasecmp((string)$q->fetchColumn(),$hint)!==0){
+            session_regenerate_id(true);$_SESSION=['device_sync_pending'=>$pending];
+            header('Location: login.php?device_sync=1',true,303);exit;
+        }
+    }
     $owner=require_device_sync_user($db);
     device_sync_schema($db);
     if($_SERVER['REQUEST_METHOD']==='POST') {
@@ -75,6 +106,14 @@ if(!$owner)json(['error'=>'Website-Verbindung abgelaufen. Bitte erneut verbinden
 session_write_close();
 // Bearer authority is request-local and never upgrades a browser cookie.
 $_SESSION=['user_id'=>$owner,'auth_method'=>'microsoft'];
+// One-time browser link for a server page (see web-login above).
+if($action==='web-link'&&$_SERVER['REQUEST_METHOD']==='POST'){
+    $target=(string)($input['target']??'');
+    if(!isset(DEVICE_SYNC_WEB_TARGETS[$target])||!is_file(dirname(__DIR__).'/'.DEVICE_SYNC_WEB_TARGETS[$target]))json(['error'=>'Diese Seite gibt es auf deinem Server nicht.'],404);
+    $code=bin2hex(random_bytes(32));
+    $q=$db->prepare('INSERT INTO device_sync_codes(code_hash,user_id,challenge,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 2 MINUTE))');$q->execute([hash('sha256',$code),$owner,'web:'.$target]);
+    json(['url'=>rtrim((string)$config['app_url'],'/').'/api/device-sync.php?action=web-login&code='.$code]);
+}
 // Deleting the own server account from an app (Apple requires in-app deletion).
 if($action==='account-deletion'&&$_SERVER['REQUEST_METHOD']==='GET'){
     require_once __DIR__.'/account-delete.php';
@@ -106,6 +145,35 @@ if($action==='family-circle') {
 }
 if($action==='capabilities'&&$_SERVER['REQUEST_METHOD']==='GET') {
     require_once __DIR__.'/device-sync-capabilities.php';json(device_sync_capabilities($db,$config,$owner));
+}
+// Deleting a trip on the server from the app (owners of the trip and admins, like on the website).
+if($action==='trip-delete'&&$_SERVER['REQUEST_METHOD']==='DELETE') {
+    $_SESSION=['user_id'=>$owner,'auth_method'=>'microsoft'];
+    $_GET['action']='trip';
+    require __DIR__.'/api.php';exit;
+}
+// Automation schedule from the app: only the owner of the automation (see travel-automation-setup.php).
+if($action==='travel-automation'&&in_array($_SERVER['REQUEST_METHOD'],['GET','PATCH'],true)) {
+    require_once __DIR__.'/travel-automation-settings.php';
+    require_once __DIR__.'/travel-automation.php';
+    try{$path=travel_settings_path(dirname(__DIR__),$config['travel_automation_settings_file']??null);$settings=json_decode((string)file_get_contents($path),true,32,JSON_THROW_ON_ERROR);}
+    catch(Throwable){json(['available'=>false]);}
+    $q=$db->prepare('SELECT email,is_admin FROM users WHERE id=?');$q->execute([$owner]);$user=$q->fetch();
+    if(!is_array($settings)||!$user||!(bool)$user['is_admin']||strcasecmp((string)$user['email'],(string)($settings['ownerEmail']??''))!==0)json(['available'=>false]);
+    if($_SERVER['REQUEST_METHOD']==='PATCH'){
+        // mode: off / night / frequent (0.3.4); frequentRuns (bool) from the first 0.3.4 test builds.
+        try{
+            if(isset($input['mode']))$changed=travel_apply_mode($settings,$input['mode']);
+            elseif(is_bool($input['frequentRuns']??null))$changed=array_replace($settings,['frequentRuns'=>$input['frequentRuns']]);
+            else json(['error'=>'Ungültige Einstellung.'],422);
+        }catch(InvalidArgumentException){json(['error'=>'Ungültige Einstellung.'],422);}
+        try{$settings=travel_settings($changed);travel_save($path,$settings);}
+        catch(Throwable){json(['error'=>'Die Einstellung konnte nicht gespeichert werden.'],500);}
+    }
+    $last=travel_last_run(travel_private_directory($path,(string)$settings['ownerEmail']));
+    [$reviewCount]=travel_review_cases(travel_private_directory($path,(string)$settings['ownerEmail']),0);
+    json(['available'=>true,'mode'=>travel_mode($settings),'enabled'=>(bool)($settings['enabled']??false),'frequentRuns'=>(bool)($settings['frequentRuns']??false),
+        'lastRun'=>$last===null?null:['at'=>gmdate(DATE_ATOM,$last['at']),'ok'=>$last['ok'],'connectionProblem'=>$last['connectionProblem'],'imported'=>$last['imported'],'review'=>$last['review']],'reviewCount'=>$reviewCount]);
 }
 if($action==='administration') {
     $q=$db->prepare('SELECT is_admin FROM users WHERE id=?');$q->execute([$owner]);

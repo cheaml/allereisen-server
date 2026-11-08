@@ -11,7 +11,7 @@ function device_sync_capabilities(PDO $db,array $config,int $owner): array {
     $main=$admin&&in_array($email,array_map(static fn($s)=>strtolower(trim((string)$s)),(array)($config['admin_emails']??[])),true);
     $q=$db->prepare('SELECT COUNT(*) FROM oauth_tokens WHERE user_id=?');$q->execute([$owner]);$oneDrive=(int)$q->fetchColumn()>0;
     if(!$oneDrive&&($admin||!empty($user['can_import'])))$issues[]='Am Server fehlt die Microsoft-/OneDrive-Anmeldung für dieses Konto.';
-    return ['protocol'=>1,'capabilities'=>['administration'=>$admin,'serverRead'=>true,'bulkTransfer'=>true,'revisionSync'=>true,'steps'=>true,'familyCircle'=>false,'familySharing'=>false],
+    return ['protocol'=>1,'capabilities'=>['administration'=>$admin,'serverRead'=>true,'bulkTransfer'=>true,'revisionSync'=>true,'steps'=>true,'familyCircle'=>false,'familySharing'=>false,'travelAutomation'=>$admin&&is_file(__DIR__.'/travel-automation-setup.php')],
         'ready'=>count($issues)===0,'issues'=>$issues,'canImport'=>$admin||(bool)($user['can_import']??false),'canManageAccounts'=>$main,'canApproveTrips'=>$main,'oneDriveConfigured'=>$oneDrive,
         'note'=>'Die gespeicherte Microsoft-Verbindung muss gültig sein und auf dieselben OneDrive-Originale wie die App zugreifen können.'];
 }

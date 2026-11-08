@@ -887,11 +887,21 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
 function administration() {
   if (window.ReiseNativeUI) { window.ReiseNativeUI.archive({ app, go }); return; }
   // Trip administration for owners (own trips); app administration sections only for administrators.
-  if (!access.isAdmin && !ownsAnyTrip()) { go('#home'); return; }
-  app.replaceChildren(); headerTitle.textContent = access.isLocal ? 'LOKALE REISEN' : 'ALLE REISEN';
-  const page = document.createElement('section'); page.className = 'library-page';
-  page.innerHTML = '<div class="library-head"><div><p class="eyebrow">ÜBERSICHT</p><h1>' + (access.isAdmin ? (access.isLocal ? 'Lokale' : 'Alle') + ' <em>Reisen.</em>' : 'Meine <em>Reisen.</em>') + '</h1></div></div><div class="trip-grid" id="adminTripGrid"></div>';
-  renderWebArchiveStatus(page);
+  if (!access.loggedIn) { go('#home'); return; }
+  app.replaceChildren(); headerTitle.textContent = 'EINSTELLUNGEN';
+  const page = document.createElement('section'); page.className = 'library-page settings-page';
+  page.innerHTML = '<button class="back" type="button">← ALLE REISEN</button><div class="library-head"><div><p class="eyebrow">FÜR ALLE REISEN</p><h1>Deine <em>Einstellungen.</em></h1></div></div><p class="settings-intro">Was hier steht, gilt für alle Reisen. Texte, Stationen, Strecken und Fotos einer einzelnen Reise änderst du in der Reise über „Reise bearbeiten“.</p><h2 class="settings-group">Konto</h2><div class="settings-account"></div><div id="adminTripGrid" hidden></div>';
+  page.querySelector('.back').onclick = () => go('#library');
+  { const host = page.querySelector('.settings-account'); const card = renderArchiveConnectionStatus(page, webArchiveStatusRows()); card.querySelector('h2')?.remove(); host.append(card);
+    const links = [['Abmelden', './api/logout.php'], ['Mit anderem Microsoft-Konto anmelden', './login.html'], ['Gastzugang öffnen', './gastzugang.html']];
+    for (const [label, url] of links) { const link = document.createElement('a'); link.className = 'edit-link'; link.textContent = label; link.href = url; host.append(link); }
+    if (!access.isLocal) renderAccountDeletion(host);
+    if (window.ReiseI18n) { const group = document.createElement('h2'); group.className = 'settings-group'; group.textContent = 'Allgemein'; const card = document.createElement('section'); card.className = 'import-card native-language'; const title = document.createElement('h2'); title.textContent = 'Sprache'; const select = document.createElement('select'); select.setAttribute('aria-label', 'Sprache');
+      for (const [value, label] of [['', 'Wie Browser'], ['de', 'Deutsch'], ['en', 'English']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option); }
+      select.value = ReiseI18n.choice || ''; select.onchange = () => { ReiseI18n.set(select.value || null); location.reload(); }; card.append(title, select); host.after(group, card); }
+  }
+  if (access.isAdmin || access.canConfigureAutomation) { const group = document.createElement('h2'); group.className = 'settings-group'; group.textContent = 'Verwaltung'; page.querySelector('#adminTripGrid').before(group);
+    if (access.canConfigureAutomation) { const card = document.createElement('section'); card.className = 'import-card native-automation-link'; card.innerHTML = '<h2>Reise-Automatik</h2><p>Legt fest, wann der Server aus neuen Fotos in OneDrive automatisch Reisen erstellt: Entfernung von zu Hause, ruhige Tage, kleine Fotos.</p><a class="primary" href="./api/travel-automation-setup.php">Reise-Automatik einstellen</a>'; page.querySelector('#adminTripGrid').before(card); } }
   const allTripsGuestAccess = document.createElement('section');
   allTripsGuestAccess.className = 'all-trips-guest-access';
   allTripsGuestAccess.innerHTML = '<div><p class="eyebrow">ARCHIV-ZUGRIFF</p><h2>Zugriff auf <em>alle Reisen.</em></h2><p>Diese Gäste sehen auch alle künftig importierten Reisen.</p></div><form id="allTripsGuestForm"><label for="allTripsGuestEmail">E-Mail-Adresse</label><div><input id="allTripsGuestEmail" type="email" autocomplete="email" placeholder="gast@example.com" required><button class="primary">HINZUFÜGEN</button></div></form><div class="all-trips-guest-list" id="allTripsGuestList" aria-live="polite"></div>';
@@ -922,9 +932,9 @@ function administration() {
   importButton.disabled = false;
   importButton.title = 'OneDrive, lokale Dateien oder Dropbox auswählen';
   importButton.onclick = () => go('#import');
-  if (access.isAdmin || access.canImport) page.querySelector('.library-head').append(importButton);
-  if(window.ReiseWebUI){const done=document.createElement('button');done.type='button';done.className='primary';done.textContent='Verwaltung schließen';done.onclick=()=>{ReiseWebUI.archiveEditing=false;render();};page.querySelector('.library-head').append(done);}
   const grid = page.querySelector('#adminTripGrid');
+  if (window.ReiseWebUI) { app.append(page); return; }
+  if (access.isAdmin || access.canImport) page.querySelector('.library-head').append(importButton);
   apiFetch('./api/api.php?action=trips', { credentials: 'same-origin', cache: 'no-store' }).then(async response => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || 'Die Reisen konnten nicht geladen werden.');
@@ -1163,9 +1173,8 @@ function canEditTrip(tripId) {
   const controls=globalThis.ReiseNativeUI||globalThis.ReiseWebUI;
   if (!controls) return true;
   if(globalThis.ReiseNativeUI?.isReadOnlyTrip?.(tripId))return false;
-  const current=globalThis.location?.hash.match(/^#trip\/([^/]+)\/(?:day|station|place)\//);
-  if (tripId && current && String(current[1]) === String(tripId)) return true;
-  return !!tripId && Boolean(controls.archiveManaging ?? controls.archiveEditing);
+  // Editing controls show only while the edit mode of this trip is on (see openTripEditor).
+  return tripEditing(tripId);
 }
 function numberTripStations(stops) {
   const groups=new Map();
@@ -1763,7 +1772,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
   let pendingDayDate = currentStop ? stopDay(currentStop.starts_at) : '';
   let pendingStationDate = currentStop;
   const dayStepLabels = new Map();
-  const removeMap = () => { mapOverlay?.stationMap?.remove(); mapOverlay?.stationMapNote?.remove(); mapOverlay?.remove(); mapOverlay = null; };
+  const removeMap = () => { mapOverlay?.stationMap?.remove(); mapOverlay?.stationMapNote?.remove(); mapOverlay?.remove(); mapOverlay = null; dialog.classList.remove('has-slide-map'); };
   const removeOverlay = () => { removeMap(); overlay?.remove(); overlay = null; };
   const refreshMap = async () => {
     removeMap(); dialog.classList.toggle('media-map-enabled', showMap);
@@ -1773,7 +1782,27 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     host.className = 'day-stations-map ' + (phase === 'day' ? 'media-slide-day-map' + (dayHasText ? '' : ' media-slide-day-map-full') : 'media-station-intro-map');
     host.setAttribute('aria-label', 'Tageskarte mit Stationsmarker'); mapOverlay = host; dialog.append(host);
     await renderSlideshowStationMap(host, allStops.length ? allStops : [stop], stop, tripId, phase === 'day');
+    // Corner maps fold away to a tab at the right edge (the full day map is the slide itself).
+    if (islandViewer && mapOverlay === host && !host.classList.contains('media-slide-day-map-full')) {
+      const fold = document.createElement('button'); fold.type = 'button'; fold.className = 'media-map-fold'; fold.textContent = '›'; fold.setAttribute('aria-label', 'Karte einklappen');
+      fold.addEventListener('pointerdown', event => event.stopPropagation()); fold.onclick = event => { event.stopPropagation(); setShowMap(false); };
+      host.append(fold); dialog.classList.add('has-slide-map');
+    }
   };
+  // Island slideshows (app, website): the map is switched with the tab at the right edge and the "›" button in
+  // the map instead of a button in the playback island; the choice is remembered.
+  if (islandViewer && !showMap) { try { showMap = localStorage.getItem('atlas-slideshow-map') === '1'; } catch {} }
+  const setShowMap = visible => {
+    if (visible !== showMap) mapToggle.click();
+    try { localStorage.setItem('atlas-slideshow-map', showMap ? '1' : '0'); } catch {}
+  };
+  const mapTab = document.createElement('button'); mapTab.type = 'button'; mapTab.className = 'media-map-tab'; mapTab.textContent = '‹ Karte'; mapTab.setAttribute('aria-label', 'Karte aufklappen');
+  let tabStart = null;
+  mapTab.addEventListener('pointerdown', event => { tabStart = event.clientX; });
+  // Tap or swipe to the left opens the map again.
+  mapTab.addEventListener('pointerup', event => { if (tabStart !== null && tabStart - event.clientX > 24) setShowMap(true); tabStart = null; });
+  mapTab.onclick = event => { event.stopPropagation(); setShowMap(true); };
+  if (islandViewer) dialog.append(mapTab);
   const stopCurrentMedia = () => {
 
     if (currentMedia instanceof HTMLImageElement) currentMedia.onload = currentMedia.onerror = null;
@@ -1917,7 +1946,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     for(let seconds=3;seconds<=10;seconds++)duration.add(new Option(seconds+' s',String(seconds)));duration.value=String(photoSeconds);
     duration.onchange=()=>{photoSeconds=Number(duration.value);try{localStorage.setItem('atlas-photo-seconds',String(photoSeconds));}catch{}duration.blur();schedule();keepControlsVisible();};
     const durationIcon=document.createElement('span');durationIcon.className='media-duration-icon';durationIcon.innerHTML=window.ReiseIcons?.svg('duration')||'◷';durationIcon.setAttribute('aria-hidden','true');durationLabel.title='Anzeigedauer pro Foto';
-    durationLabel.append(durationIcon,duration);playback.append(durationLabel,mapToggle);dialog.append(playback);
+    durationLabel.append(durationIcon,duration);playback.append(durationLabel);dialog.append(playback);
     // Apps: open the full-resolution original (own source or, for other people's trips, via the server).
     if(nativeViewer&&globalThis.ReiseNative){
       const originalButton=document.createElement('button');originalButton.type='button';originalButton.className='media-original-button';
@@ -1935,6 +1964,8 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
       };
       playback.append(originalButton);
     }
+    // The map is switched with the tab and "›" (setShowMap); the old map button stays detached as the switch.
+    mapToggle.remove();
     if(!toolbar.children.length)toolbar.classList.add('media-empty-toolbar');
   }
   const previous = document.createElement('button'), next = document.createElement('button');
@@ -2363,14 +2394,15 @@ function updateWorldSearchStatus(node,stops,focused) {
 function renderPage() {
   const hash = location.hash;
   window.ReiseNativeUI?.navigation?.({ hash, app, go, openMediaLightbox, refresh: render });
+  { const editTrip = hash.match(/^#trip\/([^/]+)/)?.[1] || null; if (!editTrip) setTripEditing(null, false); if (access.loggedIn !== null) mountTripEditButton(editTrip); }
   if (access.loggedIn === null) return;
   if(access.loggedIn)window.ReiseWebUI?.navigation?.({hash,app,go,openMediaLightbox,refresh:render,access});
   if (window.ReiseNativeUI && hash === '#settings') { window.ReiseNativeUI.settings({ app, go }); return; }
   if (!access.loggedIn) { location.assign(localStorage.getItem('atlas-last-auth-method') === 'guest' ? './gastzugang.html' : './login.html'); return; }
   helpMenu?.removeAttribute('aria-current');
-  if(hash==='#connections'&&!window.ReiseNativeUI){renderWebConnectionsPage();return;}
+  if((hash==='#connections'||hash==='#settings')&&!window.ReiseNativeUI){administration();return;}
   if (hash === '#hilfe') { helpMenu?.setAttribute('aria-current', 'page'); renderHelp(); return; }
-  if (hash === '#admin') { go('#library'); return; }
+  if (hash === '#admin') { go('#settings'); return; }
   if (hash === '#library') { library(); return; }
   if (hash === '#import' || (window.ReiseNativeUI && /^#import\/(local|onedrive)$/.test(hash))) { if (access.isAdmin || access.canImport) importer(); else go('#home'); return; }
   const day = hash.match(/^#trip\/([^/]+)\/day\/([^/]+)/);
@@ -2387,6 +2419,8 @@ function home(nativeReady = false) {
   app.replaceChildren(); headerTitle.textContent = 'WELTKARTE';
   const page = document.createElement('section'); page.className = 'world-page';
   page.innerHTML = '<div id="worldMap" class="world-map" aria-label="Weltkarte mit allen Reisestationen"></div><div class="world-map-loading" role="status"><span class="spinner" aria-hidden="true"></span><span>KARTE WIRD GELADEN …</span></div>';
+  // Settings for all trips also from the world map: the same floating button as on Alle Reisen (top right).
+  if(window.ReiseNativeUI||(window.ReiseWebUI&&access.loggedIn&&!access.isLocal)){const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');page.append(settings);}
   app.append(page); renderWorldMap();
 }
 function renderArchiveConnectionStatus(page, rows, open) {
@@ -2404,7 +2438,18 @@ function webArchiveStatusRows() {
     {label:'Website',text:access.isLocal?'Lokales Archiv – Website optional':location.origin,state:access.isLocal?'neutral':'ok'},
     {label:'Abgleich',text:access.isLocal?'Website-Verbindung über Online-Reisen öffnen':'Änderungen werden direkt auf dieser Website gespeichert'}];
 }
-function renderWebArchiveStatus(page) {renderArchiveConnectionStatus(page,webArchiveStatusRows(),()=>go('#connections'));}
+function renderWebArchiveStatus(page) {renderArchiveConnectionStatus(page,webArchiveStatusRows(),()=>go('#settings'));}
+function webRoleText() { return access.isAdmin ? 'Admin' : access.canImport ? 'Import' : access.isGuest ? 'Gast' : 'Ansehen'; }
+function renderWebAccountLine(page) {
+  const line=document.createElement('p');line.className='archive-account-line';
+  const name=[access.user?.display_name,access.user?.email].find(Boolean)||'Angemeldet';
+  const button=document.createElement('button');button.type='button';button.className='archive-account-button';
+  button.textContent=access.isLocal?'Lokales Archiv':'Angemeldet: '+name+' ('+webRoleText()+') · '+location.host;
+  button.onclick=()=>go('#settings');line.append(button);
+  // Same row as the "ÜBERSICHT" label above the title.
+  const eyebrow=page.querySelector('.library-head .eyebrow');
+  if(eyebrow){const row=document.createElement('div');row.className='library-eyebrow-row';eyebrow.replaceWith(row);row.append(eyebrow,line);}else page.prepend(line);
+}
 function renderWebConnectionsPage() {
   app.replaceChildren();const page=document.createElement('section');page.className='detail-page connections-page';
   const heading=document.createElement('h1');heading.textContent='Anmeldung & Verbindungen';page.append(heading);
@@ -2476,12 +2521,12 @@ function renderJourneyDayStrip(page, tripId, days, currentDay) {
   if(current)schedule(current);
 }
 function library() {
-  if ((access.isAdmin || ownsAnyTrip()) && (!window.ReiseWebUI || ReiseWebUI.archiveEditing)) { administration(); return; }
+  if ((access.isAdmin || ownsAnyTrip()) && !window.ReiseWebUI) { administration(); return; }
   app.replaceChildren(); headerTitle.textContent = access.isLocal ? 'LOKALE REISEN' : 'ALLE REISEN';
   const page = document.createElement('section'); page.className = 'library-page';
   page.innerHTML = '<div class="library-head"><div><p class="eyebrow">ÜBERSICHT</p><h1>' + (access.isLocal ? 'Lokale' : 'Alle') + ' <em>Reisen.</em></h1></div><span class="media-count"></span></div><div class="trip-grid"></div>';
-  if((access.isAdmin||ownsAnyTrip())&&window.ReiseWebUI){const manage=document.createElement('button');manage.type='button';manage.className='primary';manage.textContent='Reisen verwalten';manage.onclick=()=>{ReiseWebUI.archiveEditing=true;render();};page.querySelector('.library-head').append(manage);}
-  renderWebArchiveStatus(page);
+  if(window.ReiseWebUI&&access.loggedIn&&!access.isLocal){const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');page.querySelector('.library-head').append(settings);}
+  renderWebAccountLine(page);
   const records = trips(); page.querySelector('.media-count').textContent = records.length + ' REISEN';
   const searchHost=document.createElement('div');page.querySelector('.trip-grid').before(searchHost);
   for (const record of records) {
@@ -2515,45 +2560,75 @@ async function mountTripDayAdministration(page, tripRecord) {
   const overviewLabel=document.createElement('p');overviewLabel.className='eyebrow';overviewLabel.textContent='REISEÜBERSICHT';
   copy.append(overviewLabel,title,description,participants);host.append(copy);page.prepend(host);
   if (!mayEditTrip(tripRecord.id) || tripRecord.read_only || window.ReiseNativeUI?.isReadOnlyTrip?.(tripRecord.id)) return;
-  const actions=document.createElement('div');actions.className='trip-day-heading-actions';host.append(actions);
-  let stepsButton=null;
-  if(window.ReiseNativeUI?.openHealthSteps&&window.ReiseNative){
-    try{const state=await ReiseNative.request('state');if(!host.isConnected)return;
-      if(String(state.platform||'').toLowerCase()==='ios'){
-        stepsButton=document.createElement('button');stepsButton.type='button';stepsButton.className='edit-link day-steps-query';stepsButton.textContent='Schrittanzahl abfragen';
-        stepsButton.onclick=()=>ReiseNativeUI.openHealthSteps({tripId:tripRecord.id}).catch(error=>alert(error.message));
-      }
-    }catch{}
-  }
-  const editor=document.createElement('div');editor.className='trip-day-text-editor';
-  const label=document.createElement('button');label.type='button';label.className='edit-link';label.textContent='Texte und Teilnehmer bearbeiten';label.setAttribute('aria-expanded','false');
-  const fields=document.createElement('div');fields.hidden=true;
-  label.onclick=()=>{fields.hidden=!fields.hidden;label.setAttribute('aria-expanded',String(!fields.hidden));};editor.append(label,fields);copy.append(editor);
-  for(const [text,key,action,max] of [['Reisetitel','title','trip',255],['Zusammenfassung','intro','trip-intro',5000],['Teilnehmer','participants','trip-participants',100000]]){
-    const field=document.createElement('label');field.textContent=text;
-    const input=document.createElement(key==='title'?'input':'textarea');input.value=tripRecord[key]||'';input.maxLength=max;input.name=key;input.rows=key==='intro'?4:2;field.append(input);
-    const save=document.createElement('button');save.type='button';save.className='edit-link';save.textContent=text+' speichern';
-    const status=document.createElement('p');status.setAttribute('role','status');
-    save.onclick=async()=>{const value=input.value.trim();if(key==='title'&&!value){input.focus();return;}save.disabled=true;status.textContent='';
-      try{const response=await apiFetch('./api/api.php?action='+action,{method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:tripRecord.id,[key]:value})});const result=await response.json().catch(()=>({}));if(!response.ok)throw Error(result.error||'Speichern fehlgeschlagen.');tripRecord[key]=value;const cached=remoteTrips.find(t=>String(t.id)===String(tripRecord.id));if(cached)cached[key]=value;show();status.textContent='Gespeichert.';}
-      catch(error){status.textContent=error.message;}finally{save.disabled=false;}
-    };fields.append(field,save,status);
-  }
-  // Reuse the established invitation and media workflows, including confirmations.
-  const tools=document.createElement('div');tools.hidden=true;host.append(tools);
-  if(window.ReiseNativeUI)await ReiseNativeUI.tripAdministration({host:tools,tripId:tripRecord.id,go,directAdmin:true});
-  else mountWebTripAdministration(tools,tripRecord,true);
-  if(!host.isConnected)return;
-  const stepsSection=[...tools.querySelectorAll('.trip-management-section')].find(section=>['Schrittwerte',window.ReiseI18n?.t('Schrittwerte')].includes(section.querySelector('summary')?.textContent));
-  if(stepsSection)copy.append(stepsSection);
-  const guestsSection=[...tools.querySelectorAll('.trip-management-section')].find(section=>['Gäste & Einladungen',window.ReiseI18n?.t('Gäste & Einladungen')].includes(section.querySelector('summary')?.textContent));
-  if(guestsSection&&!guestsSection.hidden){
-    const invite=document.createElement('button');invite.type='button';invite.className='edit-link';invite.textContent='Gäste-Einladungen';
-    invite.onclick=()=>{const dialog=document.createElement('dialog');dialog.className='trip-day-guests-dialog';dialog.setAttribute('aria-label','Gäste-Einladungen');const close=document.createElement('button');close.type='button';close.className='edit-link';close.textContent='Schließen';close.onclick=()=>dialog.close();dialog.append(close,guestsSection);guestsSection.open=true;document.body.append(dialog);dialog.addEventListener('close',()=>{tools.append(guestsSection);dialog.remove();if(invite.isConnected)invite.focus();});dialog.showModal();};actions.append(invite);
-  }
-  const sync=[...tools.querySelectorAll('button')].find(button=>/^(ONEDRIVE-BILDER ABGLEICHEN|MEDIEN ABGLEICHEN|REISEZUORDNUNG AKTUALISIEREN)$/.test(button.textContent));
-  if(sync){sync.textContent='Mediendaten abgleichen';const run=sync.onclick;sync.onclick=async event=>{try{await run?.call(sync,event);}finally{if(sync.isConnected)sync.textContent='Mediendaten abgleichen';}};actions.append(sync);}
-  if(stepsButton)actions.append(stepsButton);
+  // Trip-level editing lives in the "Reise bearbeiten" sheet (top-right button).
+}
+// Edit mode per trip: station tools, route editing and photo changes appear on the trip pages
+// only while it is switched on in the "Reise bearbeiten" sheet (importers and admins).
+function tripEditing(tripId) {
+  try { return !!tripId && sessionStorage.getItem('reise-trip-editing') === String(tripId); } catch { return false; }
+}
+function setTripEditing(tripId, enabled) {
+  try { if (enabled) sessionStorage.setItem('reise-trip-editing', String(tripId)); else sessionStorage.removeItem('reise-trip-editing'); } catch {}
+}
+async function tripRecordFor(tripId) {
+  let record = (typeof remoteTrips !== 'undefined' ? remoteTrips : []).find(t => String(t.id) === String(tripId));
+  if (record) return record;
+  const response = await apiFetch('./api/api.php?action=trips', { credentials: 'same-origin', cache: 'no-store' });
+  const data = await response.json().catch(() => ({})); if (!response.ok) throw Error(data.error || 'Reise konnte nicht geladen werden.');
+  remoteTrips = data.trips || remoteTrips; record = remoteTrips.find(t => String(t.id) === String(tripId));
+  if (!record) throw Error('Reise nicht gefunden.');
+  return record;
+}
+function mountTripEditButton(tripId) {
+  document.querySelector('.trip-edit-open')?.remove();
+  document.body.classList.toggle('trip-editing', !!tripId && tripEditing(tripId));
+  if (!tripId || !mayEditTrip(tripId) || window.ReiseNativeUI?.isReadOnlyTrip?.(tripId)) return;
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'trip-edit-open';
+  button.textContent = tripEditing(tripId) ? 'Bearbeiten aktiv' : 'Reise bearbeiten';
+  button.setAttribute('aria-pressed', String(tripEditing(tripId)));
+  button.onclick = () => openTripEditor(tripId).catch(error => alert(error.message));
+  document.body.append(button);
+}
+async function openTripEditor(tripId) {
+  if (document.querySelector('.trip-editor-sheet')) return;
+  const record = await tripRecordFor(tripId);
+  const dialog = document.createElement('dialog'); dialog.className = 'trip-editor-sheet'; dialog.setAttribute('aria-labelledby', 'tripEditorTitle');
+  const head = document.createElement('div'); head.className = 'trip-editor-head';
+  const heading = document.createElement('h2'); heading.id = 'tripEditorTitle'; heading.textContent = 'Reise bearbeiten';
+  const close = document.createElement('button'); close.type = 'button'; close.className = 'edit-link'; close.textContent = 'Schließen'; close.onclick = () => dialog.close();
+  head.append(heading, close);
+  const subtitle = document.createElement('p'); subtitle.className = 'trip-editor-subtitle'; subtitle.textContent = record.title || '';
+  // Edit mode switch: shows the editing controls directly on day, station and map pages.
+  const mode = document.createElement('section'); mode.className = 'trip-editor-mode';
+  const modeLabel = document.createElement('label'); const toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.checked = tripEditing(tripId);
+  modeLabel.append(toggle, document.createTextNode(' Bearbeitungsmodus auf den Reiseseiten'));
+  const modeHint = document.createElement('p'); modeHint.className = 'hint';
+  modeHint.textContent = 'Blendet auf Tages-, Stations- und Kartenseiten die Werkzeuge ein: Stationen umbenennen, zusammenführen und verschieben, Strecken zwischen Stationen ändern, Aufnahmezeit und Station einzelner Fotos ändern. Ausgeschaltet sieht die Reise aus wie für alle anderen.';
+  toggle.onchange = () => { setTripEditing(tripId, toggle.checked); dialog.close(); render(); };
+  mode.append(modeLabel, modeHint);
+  const tools = document.createElement('div'); tools.className = 'trip-editor-tools';
+  dialog.append(head, subtitle, mode, tools);
+  document.body.append(dialog);
+  dialog.addEventListener('close', () => { dialog.remove(); mountTripEditButton(tripId); });
+  dialog.showModal();
+  if (window.ReiseNativeUI) {
+    await ReiseNativeUI.tripAdministration({ host: tools, tripId, go, directAdmin: true });
+    if (window.ReiseNativeUI.openHealthSteps && window.ReiseNative) {
+      try { const state = await ReiseNative.request('state'); if (String(state.platform || '').toLowerCase() === 'ios') {
+        const steps = document.createElement('button'); steps.type = 'button'; steps.className = 'edit-link'; steps.textContent = 'Schrittanzahl abfragen';
+        steps.onclick = () => ReiseNativeUI.openHealthSteps({ tripId }).catch(error => alert(error.message)); tools.prepend(steps);
+      } } catch {}
+    }
+  } else mountWebTripAdministration(tools, record, true);
+  tools.querySelectorAll('details.trip-management').forEach(details => { details.open = true; details.querySelector(':scope > summary')?.remove(); });
+  const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'edit-link trip-editor-delete'; remove.textContent = 'Reise löschen';
+  remove.onclick = async () => {
+    if (window.ReiseNativeUI?.deleteTrip) { if (await ReiseNativeUI.deleteTrip(tripId)) { dialog.close(); go('#library'); } return; }
+    dialog.close(); await eraseTrip(record.id); if (!remoteTrips.some(t => String(t.id) === String(tripId))) go('#library');
+  };
+  const removeNote = document.createElement('p'); removeNote.className = 'hint'; removeNote.textContent = 'Löscht die Reise mit Texten und Stationen. Die Originalfotos und Videos bleiben an ihrem Speicherort.';
+  const danger = document.createElement('section'); danger.className = 'trip-editor-danger'; danger.append(remove, removeNote);
+  if (dialog.open) dialog.append(danger);
 }
 async function renderTripDayOverview(tripId) {
   app.innerHTML='<section class="detail-page"><p role="status">Tagesübersicht wird geladen …</p></section>';
@@ -3178,6 +3253,9 @@ async function serverPlace(tripId, stopId) {
       if (canEditTrip()) {
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'edit-link media-time-edit'; edit.textContent = 'AUFNAHMEZEIT ÄNDERN';
         edit.onclick = () => editMediaTime(tripRecord.id, stop.id, item); card.append(edit);
+        const pick = document.createElement('label'); pick.className = 'media-remove-pick';
+        const box = document.createElement('input'); box.type = 'checkbox'; box.value = String(item.id); box.onchange = () => updateMediaRemoveBar(page, tripRecord.id);
+        pick.append(box, document.createTextNode(' Auswählen')); card.append(pick);
       }
       target.append(card);
     };
@@ -3190,6 +3268,7 @@ async function serverPlace(tripId, stopId) {
         const grid = document.createElement('div'); grid.className = 'station-photo-grid'; items.forEach(item => addPhoto(item, grid)); section.append(heading, grid); photoGrid.append(section);
       });
     } else media.forEach(item => addPhoto(item, photoGrid));
+    if (canEditTrip()) updateMediaRemoveBar(page, tripRecord.id);
     if (pendingStationMedia && String(pendingStationMedia.tripId) === String(tripRecord.id) && String(pendingStationMedia.stopId) === String(stop.id) && page.isConnected && location.hash === `#trip/${tripRecord.id}/station/${stop.id}`) {
       const mediaId = String(pendingStationMedia.mediaId), first = pendingStationMedia.first;
       pendingStationMedia = null;
@@ -3201,6 +3280,76 @@ async function serverPlace(tripId, stopId) {
     if (pendingStationMedia && String(pendingStationMedia.tripId) === String(tripRecord.id) && String(pendingStationMedia.stopId) === String(stopId)) pendingStationMedia = null;
     page.querySelector('.station-photo-grid').textContent = 'Die Stationsdaten konnten nicht geladen werden.';
   }
+}
+// Edit mode: remove selected photos/videos from this trip. Only the reference goes; originals stay.
+function updateMediaRemoveBar(page, tripId) {
+  let bar = page.querySelector('.media-remove-bar');
+  const chosen = [...page.querySelectorAll('.media-remove-pick input:checked')].map(box => box.value);
+  if (!bar) {
+    bar = document.createElement('div'); bar.className = 'media-remove-bar'; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Aufnahmen aus der Reise entfernen');
+    const count = document.createElement('span'); count.className = 'media-remove-count';
+    const all = document.createElement('button'); all.type = 'button'; all.className = 'edit-link'; all.textContent = 'Alle auswählen';
+    all.onclick = () => { const boxes = [...page.querySelectorAll('.media-remove-pick input')], on = boxes.some(b => !b.checked); boxes.forEach(b => { b.checked = on; }); updateMediaRemoveBar(page, tripId); };
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'primary media-remove-run'; remove.textContent = 'Aus Reise entfernen';
+    remove.onclick = () => removeSelectedMedia(page, tripId, remove);
+    const move = document.createElement('button'); move.type = 'button'; move.className = 'media-move-run'; move.textContent = 'In andere Reise verschieben';
+    move.onclick = () => moveSelectedMedia(page, tripId, move);
+    const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = 'Die Originale bleiben in OneDrive bzw. im Ordner. Die Fotoautomatik fügt entfernte Aufnahmen nicht wieder hinzu. Bei Reisen aus einem eigenen Ordner das Foto zusätzlich aus dem Ordner verschieben, sonst kommt es beim nächsten Abgleich zurück.';
+    bar.append(count, all, move, remove, hint); page.querySelector('.station-photo-grid')?.before(bar);
+  }
+  bar.querySelector('.media-remove-count').textContent = chosen.length ? chosen.length + ' ausgewählt' : 'Aufnahmen auswählen, um sie zu entfernen oder in eine andere Reise zu verschieben';
+  bar.querySelector('.media-remove-run').disabled = !chosen.length;
+  bar.querySelector('.media-move-run').disabled = !chosen.length;
+}
+async function removeSelectedMedia(page, tripId, button) {
+  const ids = [...page.querySelectorAll('.media-remove-pick input:checked')].map(box => box.value);
+  if (!ids.length) return;
+  const ask = window.ReiseConfirm ? window.ReiseConfirm : async message => confirm(message);
+  if (!await ask(ids.length + (ids.length === 1 ? ' Aufnahme' : ' Aufnahmen') + ' aus dieser Reise entfernen? Die Originale bleiben erhalten.')) return;
+  button.disabled = true;
+  try {
+    const response = await apiFetch('./api/api.php?action=media-remove', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trip: tripId, media: ids }) });
+    const result = await response.json().catch(() => ({})); if (!response.ok) throw Error(result.error || 'Die Aufnahmen konnten nicht entfernt werden.');
+    if (typeof stationMediaCache !== 'undefined') stationMediaCache.invalidate?.();
+    const emptied = ids.length >= page.querySelectorAll('.media-remove-pick input').length;
+    if (emptied) go('#trip/' + tripId + '/days'); else render();
+  } catch (error) { alert(error.message); button.disabled = false; }
+}
+// Edit mode: move selected photos/videos to another trip. In the target they join a station of the same
+// day nearby or get a new station named after the day; originals stay where they are.
+async function moveSelectedMedia(page, tripId, button) {
+  const ids = [...page.querySelectorAll('.media-remove-pick input:checked')].map(box => box.value);
+  if (!ids.length || document.querySelector('.media-move-dialog')) return;
+  const native = globalThis.ReiseNativeUI?.moveTargets;
+  const targets = (native ? await native(tripId) : remoteTrips.filter(t => String(t.id) !== String(tripId) && mayEditTrip(t.id)))
+    .sort((a, b) => String(b.starts_on || '').localeCompare(String(a.starts_on || '')) || String(a.title).localeCompare(String(b.title)));
+  const dialog = document.createElement('dialog'); dialog.className = 'media-move-dialog'; dialog.setAttribute('aria-labelledby', 'mediaMoveTitle');
+  const heading = document.createElement('h2'); heading.id = 'mediaMoveTitle'; heading.textContent = 'In andere Reise verschieben';
+  const intro = document.createElement('p'); intro.textContent = ids.length === 1 ? '1 Aufnahme kommt in die gewählte Reise: zu einer Station desselben Tages in der Nähe, sonst in eine neue Station mit dem Datum. Die Originale bleiben, wo sie sind.' : ids.length + ' Aufnahmen kommen in die gewählte Reise: zu einer Station desselben Tages in der Nähe, sonst in eine neue Station mit dem Datum. Die Originale bleiben, wo sie sind.';
+  const label = document.createElement('label'); label.textContent = 'Zielreise';
+  const select = document.createElement('select'); select.className = 'media-move-target';
+  targets.forEach(t => { const option = document.createElement('option'); option.value = String(t.id); option.textContent = t.title + (t.starts_on ? ' · ' + String(t.starts_on).slice(0, 4) : ''); select.append(option); });
+  label.append(select);
+  const hint = document.createElement('p'); hint.className = 'hint';
+  hint.textContent = native ? 'Zur Auswahl stehen Reisen auf diesem Gerät mit derselben Fotoquelle.' : 'Zur Auswahl stehen Reisen, die du bearbeiten darfst. Reisen aus einem eigenen Ordner gleichen sich mit dem Ordner ab: Dort das Foto zusätzlich in den Ordner der Zielreise verschieben.';
+  const actions = document.createElement('div'); actions.className = 'media-move-actions';
+  const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'edit-link'; cancel.textContent = 'Abbrechen'; cancel.onclick = () => dialog.close();
+  const run = document.createElement('button'); run.type = 'button'; run.className = 'primary media-move-confirm'; run.textContent = 'Verschieben'; run.disabled = !targets.length;
+  if (!targets.length) { select.disabled = true; hint.textContent = 'Es gibt keine andere Reise, in die du diese Aufnahmen verschieben kannst.'; }
+  actions.append(cancel, run); dialog.append(heading, intro, label, hint, actions);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog); dialog.showModal();
+  run.onclick = async () => {
+    run.disabled = true; button.disabled = true;
+    try {
+      const response = await apiFetch('./api/api.php?action=media-move', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trip: tripId, target: select.value, media: ids }) });
+      const result = await response.json().catch(() => ({})); if (!response.ok) throw Error(result.error || 'Die Aufnahmen konnten nicht verschoben werden.');
+      if (typeof stationMediaCache !== 'undefined') stationMediaCache.invalidate?.();
+      dialog.close();
+      const emptied = ids.length >= page.querySelectorAll('.media-remove-pick input').length;
+      if (emptied) go('#trip/' + tripId + '/days'); else render();
+    } catch (error) { alert(error.message); run.disabled = false; button.disabled = false; }
+  };
 }
 async function renderRoute(serverId) {
   const previous = document.querySelector('.route-map');
@@ -3334,7 +3483,50 @@ function importer() { renderMediaImporter({ app, access, go, onImported: record 
 
 initializeAuthenticatedArchive();
 
-
-
-
-
+// Bottom menu and floating buttons yield while a map is moved or a page is scrolled by hand (app and website):
+// they slide to their edge and stay there until pulled back in at the handle (bottom) or the tab (right edge),
+// or until another page opens. Over the native Apple map this also means no menu cut-outs while it moves.
+(() => {
+  if (typeof document === 'undefined') return;
+  let timer = 0, start = null, yielding = false, handle = null, userInput = 0;
+  const menu = () => document.querySelector('.native-journey-nav,.journey-nav');
+  const onMap = target => target instanceof Element && !!target.closest('.leaflet-container,.apple-map-host') && !target.closest('dialog,button,a,input,select,.leaflet-control');
+  const restore = () => { clearTimeout(timer); yielding = false; document.body.classList.remove('menu-yielding'); };
+  // 0.3.4: no automatic return; only the handle, the tab or a page change bring the menu back.
+  const later = () => {};
+  const yieldMenu = () => {
+    if (!menu() || document.querySelector('dialog[open]')) return;
+    if (!handle) {
+      handle = document.createElement('button'); handle.type = 'button'; handle.className = 'menu-yield-handle'; handle.setAttribute('aria-label', 'Menü einblenden');
+      // Tab at the right edge for the floating buttons (Einstellungen, Reise bearbeiten).
+      const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'menu-yield-tab'; tab.setAttribute('aria-label', 'Knöpfe einblenden');
+      // Tap, or pull the tab inwards (handle up, side tab to the left), brings everything back.
+      for (const [node, pulled] of [[handle, (dx, dy) => dy < -16], [tab, (dx) => dx < -16]]) {
+        let from = null;
+        node.onclick = restore;
+        node.addEventListener('pointerdown', event => { from = { x: event.clientX, y: event.clientY }; try { node.setPointerCapture(event.pointerId); } catch {} });
+        node.addEventListener('pointermove', event => { if (from && pulled(event.clientX - from.x, event.clientY - from.y)) { from = null; restore(); } });
+        node.addEventListener('pointerup', () => { from = null; });
+      }
+      document.body.append(handle, tab);
+    }
+    clearTimeout(timer); yielding = true; document.body.classList.add('menu-yielding');
+  };
+  document.addEventListener('pointerdown', event => { start = onMap(event.target) ? { x: event.clientX, y: event.clientY } : null; }, true);
+  document.addEventListener('pointermove', event => { if (start && !yielding && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8) yieldMenu(); }, true);
+  for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, () => { start = null; later(); }, true);
+  document.addEventListener('wheel', event => { userInput = Date.now(); if (onMap(event.target)) { yieldMenu(); later(); } }, { capture: true, passive: true });
+  // Scrolling a page by hand (trip overview, all trips, settings …) also lets the menu yield. Scrolling done by
+  // the app itself (page change, jump to a station) does not: it needs a recent touch, wheel or key.
+  for (const type of ['touchmove', 'pointerdown', 'keydown']) document.addEventListener(type, () => { userInput = Date.now(); }, { capture: true, passive: true });
+  document.addEventListener('scroll', event => {
+    if (Date.now() - userInput > 800) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('dialog,.leaflet-container,.apple-map-host')) return;
+    yieldMenu(); later();
+  }, { capture: true, passive: true });
+  // Native Apple maps report their own gestures (the WebView does not see these touches).
+  document.addEventListener('ReiseMapMove', event => { if (!event.target.closest?.('dialog')) yieldMenu(); });
+  document.addEventListener('ReiseMapMoveEnd', later);
+  window.addEventListener('hashchange', restore);
+})();

@@ -2,6 +2,8 @@
 declare(strict_types=1);
 require_once __DIR__.'/trip-steps.php';
 require_once __DIR__.'/trip-manual-dates.php';
+// Server pages the app may open signed in through a one-time link (device-sync.php web-link).
+const DEVICE_SYNC_WEB_TARGETS=['automation'=>'api/travel-automation-setup.php'];
 function device_sync_importer_allowed(PDO $db,int $user): bool {
     $q=$db->prepare("SELECT 1 FROM users WHERE id=? AND microsoft_id IS NOT NULL AND microsoft_id<>'' AND (is_admin=1 OR can_import=1)");
     $q->execute([$user]);return (bool)$q->fetchColumn();

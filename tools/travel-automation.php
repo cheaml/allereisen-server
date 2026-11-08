@@ -13,11 +13,15 @@ try{
     $inside=static fn(string $path,string $base):bool=>str_starts_with(strtolower(str_replace('\\','/',$path)).'/',rtrim(strtolower(str_replace('\\','/',$base)),'/').'/');
     if($inside($settingsPath,$root)||preg_match('~[\\\\/](?:public_html|wwwroot|htdocs)(?:[\\\\/]|$)~i',$settingsPath))throw new RuntimeException('settings_must_be_outside_webroot');
     $s=travel_settings(json_decode((string)file_get_contents($settingsPath),true,32,JSON_THROW_ON_ERROR));
-    if($mode==='night'){if(!travel_is_night($s,new DateTimeImmutable('now'))){echo '{"status":"outside_night_window","jobsStarted":false}'.PHP_EOL;exit(0);}$mode='run';}
+    // Daytime runs (frequentRuns) at most every TRAVEL_FREQUENT_INTERVAL_SECONDS, however often the cron calls.
+    $daytime=false;
+    if($mode==='night'){$daytime=!travel_is_night($s,new DateTimeImmutable('now'));if($daytime&&empty($s['frequentRuns'])){echo '{"status":"outside_night_window","jobsStarted":false}'.PHP_EOL;exit(0);}$mode='run';}
     if($mode==='validate'){echo '{"status":"configuration_valid","jobsStarted":false}'.PHP_EOL;exit(0);}
-    $private=dirname($settingsPath).'/travel-v2-'.substr(hash('sha256',strtolower($s['ownerEmail'])),0,16);
+    $private=travel_private_directory($settingsPath,$s['ownerEmail']);
     if(!is_dir($private)&&!mkdir($private,0700))throw new RuntimeException('private_directory_unavailable');
     if($inside(realpath($private),$root)||preg_match('~[\\\\/](?:public_html|wwwroot|htdocs)(?:[\\\\/]|$)~i',realpath($private)))throw new RuntimeException('state_must_be_outside_webroot');
+    if($daytime){$last=is_file($private.'/status.json')?json_decode((string)file_get_contents($private.'/status.json'),true):null;$at=is_array($last)&&is_string($last['at']??null)?strtotime($last['at']):false;
+        if($at!==false&&time()-$at<TRAVEL_FREQUENT_INTERVAL_SECONDS-30){echo '{"status":"waiting_for_interval","jobsStarted":false}'.PHP_EOL;exit(0);}}
     $lock=fopen($private.'/worker.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB)){echo '{"status":"busy"}'.PHP_EOL;exit(0);}
     if($mode==='status'){$path=$private.'/status.json';echo is_file($path)?file_get_contents($path).PHP_EOL:'{"status":"not_run"}'.PHP_EOL;exit(0);}
     if($mode==='run'&&!$s['enabled']){echo '{"status":"disabled"}'.PHP_EOL;exit(0);}
@@ -44,7 +48,8 @@ try{
         $stateId=hash('sha256',realpath($private));$q=$db->prepare('UPDATE travel_automation_connections SET worker_state_id=? WHERE user_id=? AND worker_state_id IS NULL');$q->execute([$stateId,$owner['id']]);
         $q=$db->prepare('SELECT worker_state_id FROM travel_automation_connections WHERE user_id=?');$q->execute([$owner['id']]);if(!hash_equals($stateId,(string)$q->fetchColumn()))throw new RuntimeException('worker_state_directory_changed');
     }
-    $metadata=static function(array $chain)use($graph,$token,$scope,$private,$s,$root):array{$read=pipeline_metadata(fn($path)=>$graph->get($path),$token,$chain,$scope,TravelGraph::FIELDS,$private,$s['exiftool'],$s['perl']);$m=$read['metadata'];$read['place']=isset($m['latitude'],$m['longitude'])?pipeline_place((float)$m['latitude'],(float)$m['longitude'],$root.'/map-labels'):'Reise';return $read;};
+    // Camera photos: capture data from the OneDrive listing (no download); everything else: read the original.
+    $metadata=static function(array $chain)use($graph,$token,$scope,$private,$s,$root):array{$quick=travel_listing_metadata($chain[0])??(empty($s['smallPhotos'])?travel_listing_without_gps($chain[0],time()):null);$read=$quick!==null?['chain'=>$chain,'metadata'=>$quick,'downloaded'=>false]:pipeline_metadata(fn($path)=>$graph->get($path),$token,$chain,$scope,TravelGraph::FIELDS,$private,$s['exiftool'],$s['perl']);$m=$read['metadata'];$read['place']=isset($m['latitude'],$m['longitude'])?pipeline_place((float)$m['latitude'],(float)$m['longitude'],$root.'/map-labels'):'Reise';return $read;};
     // Originals stay in place: verify the current source version/hash and bind it to the journey.
     $register=static function(array $job,array $trip)use($graph,$rootItem,$owner,$dbFactory,$token,$private,$s):array{
         $jobScope=new TravelOneDriveScope($rootItem,$job['sourceFolder']);

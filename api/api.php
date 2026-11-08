@@ -127,6 +127,21 @@ if(in_array($action,['media-sources','local-import','local-media','dropbox-impor
 if ($action==='route-cache' && in_array($_SERVER['REQUEST_METHOD'],['GET','POST'],true)) {
   require_once __DIR__.'/route-cache.php';handle_route_cache($db,$userId,$input);
 }
+if ($action==='media-remove' && $_SERVER['REQUEST_METHOD']==='POST') {
+  require_trip_editor($db,(string)($input['trip']??''));
+  require_once __DIR__.'/media-remove.php';
+  try{$result=media_remove($db,(string)($input['trip']??''),is_array($input['media']??null)?$input['media']:[]);}
+  catch(Throwable $error){$status=in_array($error->getCode(),[404,409,422],true)?$error->getCode():500;json(['error'=>$status===500?'Die Aufnahmen konnten nicht entfernt werden.':$error->getMessage()],$status);}
+  json($result);
+}
+if ($action==='media-move' && $_SERVER['REQUEST_METHOD']==='POST') {
+  // Both trips must be editable by this person: the source loses, the target gains the captures.
+  require_trip_editor($db,(string)($input['trip']??''));require_trip_editor($db,(string)($input['target']??''));
+  require_once __DIR__.'/media-remove.php';
+  try{$result=media_move($db,(string)($input['trip']??''),(string)($input['target']??''),is_array($input['media']??null)?$input['media']:[]);}
+  catch(Throwable $error){$status=in_array($error->getCode(),[404,409,422],true)?$error->getCode():500;json(['error'=>$status===500?'Die Aufnahmen konnten nicht verschoben werden.':$error->getMessage()],$status);}
+  json($result);
+}
 if ($action==='media-time' && $_SERVER['REQUEST_METHOD']==='PATCH') {
   $editor=require_trip_editor($db,(string)($input['trip']??''));
   if(!array_key_exists('expected_taken_at',$input)||!array_key_exists('expected_capture_source',$input))json(['error'=>'Bitte die Station neu laden.'],422);
