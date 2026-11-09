@@ -7,6 +7,6 @@ declare(strict_types=1);
 function device_sync_admin_operation(string $operation,string $method): bool {
     $allowed=['admin-accounts'=>['GET','POST','DELETE'],'import-permissions'=>['GET','PATCH'],
         'trip-review'=>['GET','POST'],'all-trips-guests'=>['GET','POST','DELETE'],
-        'trip-guests'=>['GET','DELETE'],'trip-invite'=>['POST']];
+        'trip-guests'=>['GET','DELETE'],'trip-invite'=>['POST'],'guest-emails'=>['GET']];
     return in_array($method,$allowed[$operation]??[],true);
 }

@@ -1008,7 +1008,7 @@ async function initializeAuthenticatedArchive() {
     const sessionResponse = await apiFetch('./api/api.php?action=session', { credentials: 'same-origin', cache: 'no-store' });
     const session = sessionResponse.ok ? await sessionResponse.json() : null;
     access = { loggedIn: !!session?.logged_in, isAdmin: !!session?.is_admin, canImport: !!session?.can_import, canApprove: !!session?.can_approve_trips, isMicrosoft: !!session?.is_microsoft, isLocal: !!session?.local_archive,isGuest:!!session?.is_guest, user:session?.user||null,canConfigureAutomation:!!session?.travel_automation_available, homeLocation:session?.home_location||null };
-    if (!access.loggedIn) { location.assign(localStorage.getItem('atlas-last-auth-method') === 'guest' ? './gastzugang.html' : './login.html'); return; }
+    if (!access.loggedIn) { rememberSharedTrip(); location.assign(localStorage.getItem('atlas-last-auth-method') === 'guest' ? './gastzugang.html' : './login.html'); return; }
     localStorage.setItem('atlas-last-auth-method', session.is_guest ? 'guest' : 'microsoft');
     if (adminMenu) adminMenu.hidden = !access.isAdmin;
     if (logoutMenu) logoutMenu.hidden = !!session.local_archive;
@@ -1035,6 +1035,7 @@ async function initializeAuthenticatedArchive() {
       if (window.ReiseWebUI) ReiseWebUI.archiveEditing = true;
       location.hash = '#trip/'+encodeURIComponent(window.ReisePendingGuestTrip)+'/days';
     }
+    openSharedTrip();
     render();
   } catch (error) {
     const message = document.createElement('p');
@@ -1796,7 +1797,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     if (visible !== showMap) mapToggle.click();
     try { localStorage.setItem('atlas-slideshow-map', showMap ? '1' : '0'); } catch {}
   };
-  const mapTab = document.createElement('button'); mapTab.type = 'button'; mapTab.className = 'media-map-tab'; mapTab.textContent = '‹ Karte'; mapTab.setAttribute('aria-label', 'Karte aufklappen');
+  const mapTab = document.createElement('button'); mapTab.type = 'button'; mapTab.className = 'media-map-tab'; mapTab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path><path d="M9 4v14M15 6v14"></path></svg>'; mapTab.setAttribute('aria-label', 'Karte aufklappen'); mapTab.title = 'Karte aufklappen';
   let tabStart = null;
   mapTab.addEventListener('pointerdown', event => { tabStart = event.clientX; });
   // Tap or swipe to the left opens the map again.
@@ -1963,6 +1964,14 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
         finally{window.removeEventListener('ReiseVideoProgress',progress);originalButton.disabled=false;}
       };
       playback.append(originalButton);
+    }
+    // Share the trip from the slideshow too (same invitation sheet as in the bottom menu).
+    const shareTripId=items.find(item=>item?.tripId)?.tripId;
+    if(shareTripId&&typeof shareTrip==='function'){
+      const shareButton=document.createElement('button');shareButton.type='button';shareButton.className='media-share-button';
+      if(globalThis.ReiseIcons)ReiseIcons.apply(shareButton,'share','Teilen');else{shareButton.textContent='Teilen';shareButton.setAttribute('aria-label','Teilen');}
+      shareButton.onclick=()=>{playing=false;updatePlayback();keepControlsVisible();shareTrip(String(shareTripId)).catch(error=>alert(error.message));};
+      playback.append(shareButton);
     }
     // The map is switched with the tab and "›" (setShowMap); the old map button stays detached as the switch.
     mapToggle.remove();
@@ -2389,6 +2398,8 @@ function updateWorldSearchStatus(node,stops,focused) {
   let status=node.querySelector('.world-search-status');if(!status){status=document.createElement('div');status.className='world-search-status';status.setAttribute('role','status');node.append(status);}
   const count=new Set(stops.map(stop=>String(stop.trip_id))).size,state=TripSearch.get('map');
   status.textContent=count?count+' '+(count===1?'Reise':'Reisen')+(focused?' · gezielte Auswahl':state.keyword||state.participant||state.query||state.year!=='all'?' · Filter aktiv':''):'Keine Reisen gefunden';
+  // The app's world header line shows the same count below the name.
+  const sub=document.querySelector('.world-topbar .page-topbar-sub');if(sub)sub.textContent=status.textContent;
 }
 
 function renderPage() {
@@ -2420,7 +2431,11 @@ function home(nativeReady = false) {
   const page = document.createElement('section'); page.className = 'world-page';
   page.innerHTML = '<div id="worldMap" class="world-map" aria-label="Weltkarte mit allen Reisestationen"></div><div class="world-map-loading" role="status"><span class="spinner" aria-hidden="true"></span><span>KARTE WIRD GELADEN …</span></div>';
   // Settings for all trips also from the world map: the same floating button as on Alle Reisen (top right).
-  if(window.ReiseNativeUI||(window.ReiseWebUI&&access.loggedIn&&!access.isLocal)){const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');page.append(settings);}
+  if(window.ReiseNativeUI){
+    const bar=document.createElement('header');bar.className='page-topbar world-topbar';
+    bar.innerHTML='<svg class=\"app-mark\" viewBox=\"0 0 1024 1024\" aria-hidden=\"true\"><defs><linearGradient id=\"appMarkBg\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#5b4636\"/><stop offset=\"1\" stop-color=\"#b8573f\"/></linearGradient><clipPath id=\"appMarkClip\"><rect width=\"1024\" height=\"1024\" rx=\"230\"/></clipPath></defs><g clip-path=\"url(#appMarkClip)\"><rect width=\"1024\" height=\"1024\" fill=\"url(#appMarkBg)\"/><path d=\"M0 640C110 610 170 700 250 660S330 560 300 480 160 380 0 420z\" fill=\"#26473e\"/><path d=\"M0 1024V800C120 760 200 840 330 820S470 900 440 1024z\" fill=\"#26473e\"/><path d=\"M1024 0H640c30 60 120 70 170 40s150 0 214 60z\" fill=\"#26473e\"/><path d=\"M380 0c20 150-60 250 0 400s-40 300 30 624M0 260c200-40 380 40 560 10s330-90 464-40M520 1024c40-160 200-220 504-260\" fill=\"none\" stroke=\"#e7b98a\" stroke-width=\"14\" stroke-opacity=\".55\"/><g fill=\"#f6efe2\" transform=\"translate(-9 0)\"><path d=\"M288 820L490 296h36L334 820z\"/><path d=\"M496 296h56l232 524h-96z\"/><path d=\"M384 614h252l14 38H370z\"/><rect x=\"240\" y=\"808\" width=\"146\" height=\"34\" rx=\"5\"/><rect x=\"640\" y=\"808\" width=\"186\" height=\"34\" rx=\"5\"/></g><path d=\"M512 286c-28-36-70-70-70-116a70 70 0 0 1 140 0c0 46-42 80-70 116z\" fill=\"#ffd98a\"/><circle cx=\"512\" cy=\"170\" r=\"26\" fill=\"#26473e\"/></g></svg><div class="page-topbar-text"><span class="page-topbar-title">AlleReisen</span><span class="page-topbar-sub" role="status"></span></div>';
+    const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');bar.append(settings);page.append(bar);
+  }else if(window.ReiseWebUI&&access.loggedIn&&!access.isLocal){const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');page.append(settings);}
   app.append(page); renderWorldMap();
 }
 function renderArchiveConnectionStatus(page, rows, open) {
@@ -2551,14 +2566,14 @@ function renderDaySteps(page, summary, host) {
 }
 async function mountTripDayAdministration(page, tripRecord) {
   if (!page.isConnected) return;
-  const host=document.createElement('header');host.className='trip-day-heading';
+  const host=document.createElement('header');host.className='trip-day-heading page-topbar trip-topbar';
   const copy=document.createElement('div');copy.className='trip-day-heading-copy';
   const title=document.createElement('h1');title.id='overviewTitle';
   const description=document.createElement('p');description.className='overview-description';
   const participants=document.createElement('p');participants.className='overview-participants';
   const show=()=>{title.textContent=tripRecord.title;description.textContent=tripRecord.intro||'';participants.textContent=tripRecord.participants?'Teilnehmer: '+tripRecord.participants:'Teilnehmer: noch nicht angegeben';};show();
   const overviewLabel=document.createElement('p');overviewLabel.className='eyebrow';overviewLabel.textContent='REISEÜBERSICHT';
-  copy.append(overviewLabel,title,description,participants);host.append(copy);page.prepend(host);
+  copy.className+=' page-topbar-text';copy.append(overviewLabel,title,description,participants);host.append(copy);page.prepend(host);
   if (!mayEditTrip(tripRecord.id) || tripRecord.read_only || window.ReiseNativeUI?.isReadOnlyTrip?.(tripRecord.id)) return;
   // Trip-level editing lives in the "Reise bearbeiten" sheet (top-right button).
 }
@@ -2570,6 +2585,22 @@ function tripEditing(tripId) {
 function setTripEditing(tripId, enabled) {
   try { if (enabled) sessionStorage.setItem('reise-trip-editing', String(tripId)); else sessionStorage.removeItem('reise-trip-editing'); } catch {}
 }
+function rememberSharedTrip() {
+  if (window.ReiseNative || !/^#trip\/[^/]+/.test(location.hash)) return;
+  try { localStorage.setItem('reise-shared-trip', JSON.stringify({ hash: location.hash, at: Date.now() })); } catch {}
+}
+// After sign-in: open the trip from a shared link, or say why it cannot be shown.
+function openSharedTrip() {
+  if (window.ReiseNative) return;
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem('reise-shared-trip') || 'null'); localStorage.removeItem('reise-shared-trip'); } catch {}
+  const target = stored && Date.now() - Number(stored.at) < 3600000 && /^#trip\/[^/]+/.test(String(stored.hash)) ? String(stored.hash) : /^#trip\/[^/]+/.test(location.hash) ? location.hash : null;
+  if (!target) return;
+  const id = decodeURIComponent(target.match(/^#trip\/([^/]+)/)[1]);
+  const known = remoteTrips.some(record => String(record.id) === id) || localTrips().some(record => String(record.id) === id);
+  if (!known) { alert(shareText('Diese Reise ist für dein Konto nicht freigegeben. Bitte die Person, die sie geteilt hat, dich zur Reise einzuladen.')); location.hash = '#library'; return; }
+  if (location.hash !== target) location.hash = target;
+}
 async function tripRecordFor(tripId) {
   let record = (typeof remoteTrips !== 'undefined' ? remoteTrips : []).find(t => String(t.id) === String(tripId));
   if (record) return record;
@@ -2579,15 +2610,79 @@ async function tripRecordFor(tripId) {
   if (!record) throw Error('Reise nicht gefunden.');
   return record;
 }
+const shareText=value=>window.ReiseI18n?.t?.(value)??value;
+// Shares the link to a trip (Signal, WhatsApp, Mail …). Only people invited to the trip can open it; access stays server-side.
+// Sends the link to a trip via the system share sheet (Signal, WhatsApp, Mail …).
+async function sendTripLink({ title, text, url, tripId }) {
+  if (window.ReiseNative) { const result = await ReiseNative.request('shareTrip', { tripId, title, text, url: url || '' }); if (result && result.shared === false && result.message) alert(shareText(result.message)); return; }
+  url ||= new URL(location.pathname, location.origin).href + '#trip/' + encodeURIComponent(tripId);
+  if (navigator.share) { try { await navigator.share({ title, text, url }); } catch (error) { if (error?.name !== 'AbortError') throw error; } return; }
+  await navigator.clipboard.writeText(text + ' ' + url); alert(shareText('Link kopiert. Du kannst ihn jetzt in Signal, WhatsApp oder einer E-Mail einfügen.'));
+}
+async function tripAdminRequest(operation, method, body, tripId) {
+  if (window.ReiseNative) return ReiseNative.request('websiteAdmin', { operation, method, body, ...(tripId ? { trip: tripId } : {}) });
+  const response = await apiFetch('./api/api.php?action=' + operation + (method === 'GET' && tripId ? '&trip=' + encodeURIComponent(tripId) : ''), { method, credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, ...(method === 'GET' ? {} : { body: JSON.stringify(body) }) });
+  const data = await response.json().catch(() => ({})); if (!response.ok) throw Error(data.error || 'Anfrage fehlgeschlagen.'); return data;
+}
+// Share = invite: the owner (or an admin) enters the e-mail address, the server adds the person as a guest of this trip
+// and returns a personal link (7 days, single use) to send via Signal or WhatsApp. People already invited get the plain link.
+async function shareTrip(tripId) {
+  const record = await tripRecordFor(tripId).catch(() => null);
+  const title = record?.title || shareText('Reise'), id = String(record?.serverId || tripId);
+  const plainText = title + ' – ' + shareText('Reise mit Karte und Diashow. Öffnen können sie alle, die zu dieser Reise eingeladen sind.');
+  const mayInvite = mayEditTrip(tripId) && !window.ReiseNativeUI?.isReadOnlyTrip?.(tripId);
+  if (!mayInvite) return sendTripLink({ title, text: plainText, tripId: id });
+  document.querySelector('.share-sheet')?.remove();
+  const el = (tag, text, className) => { const node = document.createElement(tag); if (text) node.textContent = shareText(text); if (className) node.className = className; return node; };
+  const dialog = el('dialog', '', 'share-sheet'); dialog.setAttribute('aria-labelledby', 'shareSheetTitle');
+  const heading = el('h2', 'Reise teilen'); heading.id = 'shareSheetTitle';
+  const name = el('p', '', 'share-sheet-trip'); name.textContent = title;
+  const form = el('form'); const label = el('label', 'E-Mail-Adresse der Person, die du einlädst');
+  const email = el('input'); email.type = 'email'; email.required = true; email.autocomplete = 'email'; email.inputMode = 'email'; email.placeholder = 'name@beispiel.at';
+  const known = el('datalist'); known.id = 'shareSheetEmails'; email.setAttribute('list', known.id); label.append(email, known);
+  const hint = el('p', 'Die Person wird als Gast dieser Reise eingetragen. Du bekommst einen persönlichen Link (7 Tage gültig, einmal nutzbar), den du über Signal, WhatsApp oder Mail schickst.', 'hint');
+  const invite = el('button', 'Einladungslink erstellen', 'primary'); invite.type = 'submit';
+  const status = el('p', '', 'native-form-status'); status.setAttribute('role', 'status');
+  form.append(label, hint, invite, status);
+  const plain = el('button', 'Nur Link senden (für bereits Eingeladene)', 'edit-link'); plain.type = 'button';
+  const close = el('button', 'Abbrechen', 'edit-link'); close.type = 'button';
+  const ready = el('div', '', 'share-sheet-ready'); ready.hidden = true;
+  dialog.append(heading, name, form, ready, plain, close); document.body.append(dialog); dialog.showModal();
+  dialog.addEventListener('close', () => dialog.remove());
+  close.onclick = () => dialog.close();
+  plain.onclick = () => { dialog.close(); sendTripLink({ title, text: plainText, tripId: id }).catch(error => alert(error.message)); };
+  tripAdminRequest('guest-emails', 'GET', {}, null).then(data => { for (const address of data.emails || []) { const option = document.createElement('option'); option.value = address; known.append(option); } }).catch(() => {});
+  form.onsubmit = async event => {
+    event.preventDefault(); invite.disabled = true; status.textContent = shareText('Einladung wird erstellt …');
+    try {
+      const address = email.value.trim().toLowerCase();
+      const result = await tripAdminRequest('trip-invite', 'POST', { trip: id, email: address, deliver: 'link' }, id);
+      if (!result?.url) throw Error(shareText('Der Server hat keinen Einladungslink geliefert. Bitte den Server aktualisieren.'));
+      const text = title + ' – ' + shareText('Einladung zur Reise mit Karte und Diashow. Der Link gilt 7 Tage und nur für dich:');
+      const send = () => sendTripLink({ title, text, url: result.url, tripId: id }).catch(error => alert(error.message));
+      form.hidden = true; plain.hidden = true; close.textContent = shareText('Fertig'); ready.hidden = false; status.textContent = '';
+      const done = el('p', '', 'share-sheet-done'); done.textContent = shareText('Einladung ist bereit für') + ' ' + address;
+      const sendButton = el('button', 'Über Signal, WhatsApp … senden', 'primary'); sendButton.type = 'button'; sendButton.onclick = send;
+      const copy = el('button', 'Link kopieren', 'edit-link'); copy.type = 'button';
+      copy.onclick = () => navigator.clipboard.writeText(text + ' ' + result.url).then(() => { copy.textContent = shareText('Kopiert'); }).catch(error => alert(error.message));
+      ready.replaceChildren(done, sendButton, copy);
+      if (window.ReiseNative) send();
+    } catch (error) {
+      status.textContent = /nicht gefunden/i.test(String(error.message)) ? shareText('Diese Reise ist noch nicht auf dem Server. Übertrage sie zuerst (Einstellungen → Server), dann kannst du sie teilen.') : error.message;
+    } finally { invite.disabled = false; }
+  };
+  setTimeout(() => email.focus(), 50);
+}
 function mountTripEditButton(tripId) {
   document.querySelector('.trip-edit-open')?.remove();
   document.body.classList.toggle('trip-editing', !!tripId && tripEditing(tripId));
   if (!tripId || !mayEditTrip(tripId) || window.ReiseNativeUI?.isReadOnlyTrip?.(tripId)) return;
   const button = document.createElement('button'); button.type = 'button'; button.className = 'trip-edit-open';
-  button.textContent = tripEditing(tripId) ? 'Bearbeiten aktiv' : 'Reise bearbeiten';
+  button.textContent = tripEditing(tripId) ? 'Bearbeiten aktiv' : 'Bearbeiten';
   button.setAttribute('aria-pressed', String(tripEditing(tripId)));
   button.onclick = () => openTripEditor(tripId).catch(error => alert(error.message));
   document.body.append(button);
+  document.body.style.setProperty('--trip-edit-width', button.offsetWidth + 'px');
 }
 async function openTripEditor(tripId) {
   if (document.querySelector('.trip-editor-sheet')) return;
@@ -3424,7 +3519,7 @@ async function renderRoute(serverId) {
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16, attribution: 'Tiles &copy; Esri' }).addTo(map);
     const points = geo.map(stop => [Number(stop.latitude), Number(stop.longitude)]);
     map.setView(points[0], 6, { animate: false });
-    let routeArrows = addRouteDirectionArrows(map, points, '#26473e', serverId);
+    let routeArrows = addRouteDirectionArrows(map, points, '#fffaf0', serverId);
     const routeMarkers = [];
     geo.forEach((stop, index) => {
       const stationRole = [index === 0 ? 'station-first' : '', index === geo.length - 1 ? 'station-last' : ''].filter(Boolean).join(' ');
@@ -3449,7 +3544,7 @@ async function renderRoute(serverId) {
             stop.latitude = point.lat; stop.longitude = point.lng;
             points[index] = [point.lat, point.lng];
             map.removeLayer(routeArrows);
-            routeArrows = addRouteDirectionArrows(map, points, '#26473e', serverId);
+            routeArrows = addRouteDirectionArrows(map, points, '#fffaf0', serverId);
             marker.bindTooltip(stop.name || 'Station', { direction: 'top', offset: [0, -8] });
           } catch {
             marker.setLatLng(marker.__previousPosition);

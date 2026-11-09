@@ -31,6 +31,7 @@
       }throw Error('Diese Reise enthält noch keine abspielbaren Medien.');
      }catch(error){alert(error.message);}finally{slides.disabled=false;}
     });
+    action('Teilen','share',()=>window.shareTrip?.(tripId).catch(error=>alert(error.message)));
     secondary('Hilfe','help',()=>go('#hilfe'));
    }else{
     action('Weltkarte','world',()=>go('#home'),'#home');action('Alle Reisen','archive',()=>{if(hash==='#library')refresh();else go('#library');},'#library');

@@ -176,10 +176,11 @@ if($action==='travel-automation'&&in_array($_SERVER['REQUEST_METHOD'],['GET','PA
         'lastRun'=>$last===null?null:['at'=>gmdate(DATE_ATOM,$last['at']),'ok'=>$last['ok'],'connectionProblem'=>$last['connectionProblem'],'imported'=>$last['imported'],'review'=>$last['review']],'reviewCount'=>$reviewCount]);
 }
 if($action==='administration') {
-    $q=$db->prepare('SELECT is_admin FROM users WHERE id=?');$q->execute([$owner]);
-    if(!(bool)$q->fetchColumn())json(['error'=>'Keine Administratorberechtigung.'],403);
     require_once __DIR__.'/device-sync-admin.php';
     $operation=(string)($_GET['operation']??'');
+    // Guests of one trip are managed by its owner too; api.php checks require_trip_editor for these.
+    $q=$db->prepare('SELECT is_admin FROM users WHERE id=?');$q->execute([$owner]);
+    if(!(bool)$q->fetchColumn()&&!in_array($operation,['trip-guests','trip-invite','guest-emails'],true))json(['error'=>'Keine Administratorberechtigung.'],403);
     if(!device_sync_admin_operation($operation,$_SERVER['REQUEST_METHOD']))json(['error'=>'Verwaltungsaktion nicht erlaubt.'],405);
     // Request-local identity, not written into the browser session. The native
     // caller proves authority with an explicit Authorization header, not cookies.

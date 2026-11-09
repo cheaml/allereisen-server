@@ -223,9 +223,18 @@ if ($action==='trip-guests') {
   }
   json(['error'=>'Methode nicht erlaubt.'],405);
 }
+if ($action==='guest-emails' && $_SERVER['REQUEST_METHOD']==='GET') {
+  // Addresses already invited to the caller's trips (all trips for admins): suggestions when sharing the next trip.
+  $userId=require_user();
+  if(user_is_admin($db,$userId))$q=$db->query('SELECT DISTINCT LOWER(email) AS email FROM trip_guest_access ORDER BY email LIMIT 500');
+  else{$q=$db->prepare('SELECT DISTINCT LOWER(a.email) AS email FROM trip_guest_access a JOIN trips t ON t.id=a.trip_id WHERE t.user_id=? ORDER BY email LIMIT 500');$q->execute([$userId]);}
+  json(['emails'=>array_column($q->fetchAll(),'email')]);
+}
 if ($action==='trip-invite' && $_SERVER['REQUEST_METHOD']==='POST') {
-  // Invitations are sent through the sender's Microsoft account: owner or admin, signed in with Microsoft.
-$senderId=require_trip_editor($db,trim((string)($input['trip']??'')));$mq=$db->prepare('SELECT microsoft_id FROM users WHERE id=?');$mq->execute([$senderId]);if(!(string)$mq->fetchColumn())json(['error'=>'Einladungen erfordern eine Microsoft-Anmeldung.'],403);
+  // Invitations by mail go through the sender's Microsoft account. deliver=link returns the personal link instead,
+  // so the owner or an admin can send it via Signal, WhatsApp or another messenger.
+  $byLink=($input['deliver']??'')==='link';
+$senderId=require_trip_editor($db,trim((string)($input['trip']??'')));if(!$byLink){$mq=$db->prepare('SELECT microsoft_id FROM users WHERE id=?');$mq->execute([$senderId]);if(!(string)$mq->fetchColumn())json(['error'=>'Einladungen erfordern eine Microsoft-Anmeldung.'],403);}
   $tripId=trim((string)($input['trip']??''));$email=strtolower(trim((string)($input['email']??'')));
   if(!$tripId||!filter_var($email,FILTER_VALIDATE_EMAIL))json(['error'=>'Bitte gib eine gültige E-Mail-Adresse ein.'],422);
   $trip=$db->prepare('SELECT title FROM trips WHERE id=?');$trip->execute([$tripId]);$title=(string)$trip->fetchColumn();if($title==='')json(['error'=>'Reise nicht gefunden.'],404);
@@ -233,6 +242,11 @@ $senderId=require_trip_editor($db,trim((string)($input['trip']??'')));$mq=$db->p
   try {$invite=$db->prepare('INSERT INTO trip_invitations(id,trip_id,email,token_hash,expires_at) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 7 DAY))');$invite->execute([$id,$tripId,$email,hash('sha256',$token)]);}
   catch(Throwable $e){json(['error'=>'Einladung konnte nicht erstellt werden.'],500);}
   $url=rtrim((string)$config['app_url'],'/').'/api/invite.php?token='.rawurlencode($token);
+  if($byLink){
+    try {$grant=$db->prepare('INSERT INTO trip_guest_access(trip_id,email) VALUES(?,?) ON DUPLICATE KEY UPDATE email=VALUES(email)');$grant->execute([$tripId,$email]);}
+    catch(Throwable $e){$db->prepare('DELETE FROM trip_invitations WHERE id=?')->execute([$id]);json(['error'=>'Der Reisezutritt konnte nicht eingerichtet werden.'],500);}
+    json(['ok'=>true,'url'=>$url,'title'=>$title,'expiresDays'=>7]);
+  }
   if(!send_invitation_mail($db,$config,$senderId,$email,$title,$url)){$db->prepare('DELETE FROM trip_invitations WHERE id=?')->execute([$id]);json(['error'=>'E-Mail konnte nicht gesendet werden. Bitte melde dich erneut mit Microsoft an und bestätige Mail.Send.'],502);}
   try {$grant=$db->prepare('INSERT INTO trip_guest_access(trip_id,email) VALUES(?,?) ON DUPLICATE KEY UPDATE email=VALUES(email)');$grant->execute([$tripId,$email]);}
   catch(Throwable $e){json(['error'=>'E-Mail wurde versendet, aber der Reisezutritt konnte nicht eingerichtet werden.'],500);}
