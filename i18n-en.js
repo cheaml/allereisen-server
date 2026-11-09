@@ -121,6 +121,8 @@ window.ReiseI18n?.register({
     'Reisekarte': 'Trip map',
     'Diashow': 'Slideshow',
     'Filter': 'Filter',
+    'Alle zeigen': 'Show all',
+    'Keine Reisen für diesen Filter': 'No trips for this filter',
     'Import': 'Import',
     'Reise importieren': 'Import trip',
     'Unbekannt': 'Unknown',

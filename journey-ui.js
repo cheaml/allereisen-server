@@ -31,17 +31,21 @@
       }throw Error('Diese Reise enthält noch keine abspielbaren Medien.');
      }catch(error){alert(error.message);}finally{slides.disabled=false;}
     });
+    if(window.mayEditTrip?.(tripId)){const active=!!window.tripEditing?.(tripId),edit=action(active?'Bearbeiten aktiv':'Bearbeiten','edit',()=>window.openTripEditor(tripId).catch(error=>alert(error.message)));edit.setAttribute('aria-pressed',String(active));}
     action('Teilen','share',()=>window.shareTrip?.(tripId).catch(error=>alert(error.message)));
     secondary('Hilfe','help',()=>go('#hilfe'));
    }else{
     action('Weltkarte','world',()=>go('#home'),'#home');action('Alle Reisen','archive',()=>{if(hash==='#library')refresh();else go('#library');},'#library');
+    if(access.loggedIn&&!access.isLocal)action('Einstellungen','gear',()=>go('#settings'),'#settings');
 
     action('Hilfe','help',()=>go('#hilfe'),'#hilfe');
-    if(!hash||hash==='#home')action('Filter','settings',()=>window.openMapOptions());
+    // Zoom buttons only with a mouse; on phones and tablets the map zooms with two fingers (keeps the menu at six entries).
+    if(!hash||hash==='#home'){if(matchMedia('(pointer:fine)').matches){action('Herauszoomen','minus',()=>window.worldMapZoom?.(-1));action('Hineinzoomen','plus',()=>window.worldMapZoom?.(1));}action('Filter','settings',()=>window.openMapOptions());}
    }
-   if(access.isAdmin||access.canImport){if(!hash||hash==='#home')action('Reise importieren','import',()=>go('#import'));else secondary('Reise importieren','import',()=>go('#import'));}
-   const online=document.querySelector('#onlineArchiveMenu');if(hash&&hash!=='#home'&&online&&!online.hidden)secondary('Online-Reisen','original',()=>online.click());
-   const logout=document.querySelector('#logoutMenu');if(hash&&hash!=='#home'&&logout&&!logout.hidden)secondary('Abmelden','logout',()=>logout.click());
+   // In a trip the menu matches the app (Weltkarte … Hilfe); import, online trips and sign-out are on the overview pages.
+   if(!tripId&&(access.isAdmin||access.canImport)){if(!hash||hash==='#home')action('Reise importieren','import',()=>go('#import'));else secondary('Reise importieren','import',()=>go('#import'));}
+   const online=document.querySelector('#onlineArchiveMenu');if(!tripId&&hash&&hash!=='#home'&&online&&!online.hidden)secondary('Online-Reisen','original',()=>online.click());
+   const logout=document.querySelector('#logoutMenu');if(!tripId&&hash&&hash!=='#home'&&logout&&!logout.hidden)secondary('Abmelden','logout',()=>logout.click());
    if(ui.archiveEditing){const badge=node('span','Verwaltungsmodus','journey-editing');badge.setAttribute('role','status');nav.append(badge);}
    nav.querySelectorAll('button,summary').forEach(item=>window.ReiseIcons?.caption(item));
 

@@ -22,7 +22,14 @@
       contains(trip.participants, state.participant);
   };
   const get = surface => { try { return { ...empty(), ...JSON.parse(sessionStorage.getItem('atlas-search-' + surface) || '{}') }; } catch { return empty(); } };
-  const set = (surface, state) => { const value = { ...empty(), ...state }; try { sessionStorage.setItem('atlas-search-' + surface, JSON.stringify(value)); } catch {} return value; };
+  const store = (surface, value) => { try { sessionStorage.setItem('atlas-search-' + surface, JSON.stringify(value)); } catch {} };
+  // The year is shared: a year chosen on the world map also filters "All trips" and the other way round.
+  const set = (surface, state) => {
+    const value = { ...empty(), ...state }; store(surface, value);
+    const other = surface === 'map' ? 'list' : surface === 'list' ? 'map' : '';
+    if (other) { const current = get(other); if (current.year !== value.year) store(other, { ...current, year: value.year }); }
+    return value;
+  };
   function mount({ target, surface, availableYears, state = get(surface), onChange, live = true }) {
     const form = document.createElement('form'); form.className = 'trip-search'; form.setAttribute('role', 'search'); form.setAttribute('aria-label', surface === 'map' ? 'Reisen auf der Weltkarte filtern' : 'Reisen durchsuchen');
     const unified = surface === 'map';

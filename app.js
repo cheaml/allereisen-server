@@ -1523,7 +1523,7 @@ function addRouteDirectionArrows(map, points, color, tripId, style = {}) {
     const to = points[index + 1];
     // One direct geographic segment avoids bends caused by screen-pixel
     // midpoint calculations when Leaflet changes its zoom.
-    const segment = L.polyline([from, to], { color, weight: style.weight || 4, opacity: 0, lineCap: 'round', lineJoin: 'round' }).addTo(route);
+    const segment = L.polyline([from, to], { color, weight: style.weight || 2.4, opacity: 0, lineCap: 'round', lineJoin: 'round' }).addTo(route);
     const fromPoint = map.project(from);
     const toPoint = map.project(to);
     const middle = map.unproject(fromPoint.add(toPoint.subtract(fromPoint).multiplyBy(.5)));
@@ -1710,7 +1710,9 @@ async function renderSlideshowStationMap(host, stops, activeStop, tripId, dayOve
     }
     const L = await loadLeaflet();
     if (!host.isConnected) return;
-    const map = L.map(host, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
+    // Island slideshows: no +/− on the small map (mouse wheel or two fingers zoom).
+    const islandMap = !!(window.ReiseWebUI || window.ReiseNativeUI);
+    const map = L.map(host, { scrollWheelZoom: islandMap, zoomControl: !islandMap, attributionControl: true });
     host.stationMap = map;
     if (typeof addCoastalLabels === 'function') addCoastalLabels(map, L);
     const markers = [];
@@ -1773,7 +1775,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
   let pendingDayDate = currentStop ? stopDay(currentStop.starts_at) : '';
   let pendingStationDate = currentStop;
   const dayStepLabels = new Map();
-  const removeMap = () => { mapOverlay?.stationMap?.remove(); mapOverlay?.stationMapNote?.remove(); mapOverlay?.remove(); mapOverlay = null; dialog.classList.remove('has-slide-map'); };
+  const removeMap = () => { mapOverlay?.stationMap?.remove(); mapOverlay?.stationMapNote?.remove(); mapOverlay?.remove(); mapOverlay = null; dialog.classList.remove('has-slide-map', 'has-day-map'); };
   const removeOverlay = () => { removeMap(); overlay?.remove(); overlay = null; };
   const refreshMap = async () => {
     removeMap(); dialog.classList.toggle('media-map-enabled', showMap);
@@ -1783,27 +1785,12 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     host.className = 'day-stations-map ' + (phase === 'day' ? 'media-slide-day-map' + (dayHasText ? '' : ' media-slide-day-map-full') : 'media-station-intro-map');
     host.setAttribute('aria-label', 'Tageskarte mit Stationsmarker'); mapOverlay = host; dialog.append(host);
     await renderSlideshowStationMap(host, allStops.length ? allStops : [stop], stop, tripId, phase === 'day');
-    // Corner maps fold away to a tab at the right edge (the full day map is the slide itself).
-    if (islandViewer && mapOverlay === host && !host.classList.contains('media-slide-day-map-full')) {
-      const fold = document.createElement('button'); fold.type = 'button'; fold.className = 'media-map-fold'; fold.textContent = '›'; fold.setAttribute('aria-label', 'Karte einklappen');
-      fold.addEventListener('pointerdown', event => event.stopPropagation()); fold.onclick = event => { event.stopPropagation(); setShowMap(false); };
-      host.append(fold); dialog.classList.add('has-slide-map');
-    }
+    // The station map sits on the bottom bar (portrait) or at the left edge (landscape); the photo moves aside.
+    if (islandViewer && mapOverlay === host && host.classList.contains('media-station-intro-map')) dialog.classList.add('has-slide-map');
+    if (islandViewer && mapOverlay === host && host.classList.contains('media-slide-day-map') && !host.classList.contains('media-slide-day-map-full')) dialog.classList.add('has-day-map');
   };
-  // Island slideshows (app, website): the map is switched with the tab at the right edge and the "›" button in
-  // the map instead of a button in the playback island; the choice is remembered.
+  // Island slideshows (app, website): the map is switched with the map button in the bottom bar; the choice is remembered.
   if (islandViewer && !showMap) { try { showMap = localStorage.getItem('atlas-slideshow-map') === '1'; } catch {} }
-  const setShowMap = visible => {
-    if (visible !== showMap) mapToggle.click();
-    try { localStorage.setItem('atlas-slideshow-map', showMap ? '1' : '0'); } catch {}
-  };
-  const mapTab = document.createElement('button'); mapTab.type = 'button'; mapTab.className = 'media-map-tab'; mapTab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path><path d="M9 4v14M15 6v14"></path></svg>'; mapTab.setAttribute('aria-label', 'Karte aufklappen'); mapTab.title = 'Karte aufklappen';
-  let tabStart = null;
-  mapTab.addEventListener('pointerdown', event => { tabStart = event.clientX; });
-  // Tap or swipe to the left opens the map again.
-  mapTab.addEventListener('pointerup', event => { if (tabStart !== null && tabStart - event.clientX > 24) setShowMap(true); tabStart = null; });
-  mapTab.onclick = event => { event.stopPropagation(); setShowMap(true); };
-  if (islandViewer) dialog.append(mapTab);
   const stopCurrentMedia = () => {
 
     if (currentMedia instanceof HTMLImageElement) currentMedia.onload = currentMedia.onerror = null;
@@ -1939,7 +1926,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     const zoomIsland=document.createElement('div');zoomIsland.className='media-zoom-island';zoomIsland.setAttribute('aria-label','Bildgröße');
     for(const label of ['Hineinzoomen','Herauszoomen']){const button=toolbar.querySelector(`[aria-label="${label}"]`);if(button)zoomIsland.append(button);}
     toolbar.querySelector('[aria-label="Zoom zurücksetzen"]')?.remove();
-    if(zoomIsland.children.length)dialog.append(zoomIsland);
+    // Photo zoom sits in the bottom bar (added below); iOS zooms with two fingers.
     dialog.append(close);
     const playback=document.createElement('div');playback.className='media-playback-island';playback.setAttribute('aria-label','Fotoanzeige und Karte');const playbackStatus=document.createElement('div');playbackStatus.className='media-status-island';playbackStatus.append(toggle);dialog.append(playbackStatus);
     const durationLabel=document.createElement('label');
@@ -1948,6 +1935,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     duration.onchange=()=>{photoSeconds=Number(duration.value);try{localStorage.setItem('atlas-photo-seconds',String(photoSeconds));}catch{}duration.blur();schedule();keepControlsVisible();};
     const durationIcon=document.createElement('span');durationIcon.className='media-duration-icon';durationIcon.innerHTML=window.ReiseIcons?.svg('duration')||'◷';durationIcon.setAttribute('aria-hidden','true');durationLabel.title='Anzeigedauer pro Foto';
     durationLabel.append(durationIcon,duration);playback.append(durationLabel);dialog.append(playback);
+    for(const label of ['Herauszoomen','Hineinzoomen']){const button=zoomIsland.querySelector(`[aria-label="${label}"]`);if(button){button.classList.add('media-bar-zoom');playback.append(button);}}
     // Apps: open the full-resolution original (own source or, for other people's trips, via the server).
     if(nativeViewer&&globalThis.ReiseNative){
       const originalButton=document.createElement('button');originalButton.type='button';originalButton.className='media-original-button';
@@ -1973,8 +1961,12 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
       shareButton.onclick=()=>{playing=false;updatePlayback();keepControlsVisible();shareTrip(String(shareTripId)).catch(error=>alert(error.message));};
       playback.append(shareButton);
     }
-    // The map is switched with the tab and "›" (setShowMap); the old map button stays detached as the switch.
-    mapToggle.remove();
+    // Map switch in the bottom bar (remembered); the bar height places the map directly on top of it.
+    mapToggle.addEventListener('click',()=>{try{localStorage.setItem('atlas-slideshow-map',showMap?'1':'0');}catch{}});
+    playback.append(mapToggle);
+    const barSpace=()=>{if(dialog.isConnected)dialog.style.setProperty('--slide-bar-space',Math.max(0,dialog.getBoundingClientRect().bottom-playback.getBoundingClientRect().top)+'px');};
+    if(typeof ResizeObserver==='function'){const watch=new ResizeObserver(barSpace);watch.observe(dialog);watch.observe(playback);dialog.addEventListener('close',()=>watch.disconnect());}
+    requestAnimationFrame(barSpace);
     if(!toolbar.children.length)toolbar.classList.add('media-empty-toolbar');
   }
   const previous = document.createElement('button'), next = document.createElement('button');
@@ -2434,8 +2426,8 @@ function home(nativeReady = false) {
   if(window.ReiseNativeUI){
     const bar=document.createElement('header');bar.className='page-topbar world-topbar';
     bar.innerHTML='<svg class=\"app-mark\" viewBox=\"0 0 1024 1024\" aria-hidden=\"true\"><defs><linearGradient id=\"appMarkBg\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#5b4636\"/><stop offset=\"1\" stop-color=\"#b8573f\"/></linearGradient><clipPath id=\"appMarkClip\"><rect width=\"1024\" height=\"1024\" rx=\"230\"/></clipPath></defs><g clip-path=\"url(#appMarkClip)\"><rect width=\"1024\" height=\"1024\" fill=\"url(#appMarkBg)\"/><path d=\"M0 640C110 610 170 700 250 660S330 560 300 480 160 380 0 420z\" fill=\"#26473e\"/><path d=\"M0 1024V800C120 760 200 840 330 820S470 900 440 1024z\" fill=\"#26473e\"/><path d=\"M1024 0H640c30 60 120 70 170 40s150 0 214 60z\" fill=\"#26473e\"/><path d=\"M380 0c20 150-60 250 0 400s-40 300 30 624M0 260c200-40 380 40 560 10s330-90 464-40M520 1024c40-160 200-220 504-260\" fill=\"none\" stroke=\"#e7b98a\" stroke-width=\"14\" stroke-opacity=\".55\"/><g fill=\"#f6efe2\" transform=\"translate(-9 0)\"><path d=\"M288 820L490 296h36L334 820z\"/><path d=\"M496 296h56l232 524h-96z\"/><path d=\"M384 614h252l14 38H370z\"/><rect x=\"240\" y=\"808\" width=\"146\" height=\"34\" rx=\"5\"/><rect x=\"640\" y=\"808\" width=\"186\" height=\"34\" rx=\"5\"/></g><path d=\"M512 286c-28-36-70-70-70-116a70 70 0 0 1 140 0c0 46-42 80-70 116z\" fill=\"#ffd98a\"/><circle cx=\"512\" cy=\"170\" r=\"26\" fill=\"#26473e\"/></g></svg><div class="page-topbar-text"><span class="page-topbar-title">AlleReisen</span><span class="page-topbar-sub" role="status"></span></div>';
-    const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');bar.append(settings);page.append(bar);
-  }else if(window.ReiseWebUI&&access.loggedIn&&!access.isLocal){const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');page.append(settings);}
+    page.append(bar); // "Einstellungen" is in the bottom menu of the app.
+  }else {/* website: "Einstellungen" is in the bottom menu */}
   app.append(page); renderWorldMap();
 }
 function renderArchiveConnectionStatus(page, rows, open) {
@@ -2540,7 +2532,7 @@ function library() {
   app.replaceChildren(); headerTitle.textContent = access.isLocal ? 'LOKALE REISEN' : 'ALLE REISEN';
   const page = document.createElement('section'); page.className = 'library-page';
   page.innerHTML = '<div class="library-head"><div><p class="eyebrow">ÜBERSICHT</p><h1>' + (access.isLocal ? 'Lokale' : 'Alle') + ' <em>Reisen.</em></h1></div><span class="media-count"></span></div><div class="trip-grid"></div>';
-  if(window.ReiseWebUI&&access.loggedIn&&!access.isLocal){const settings=document.createElement('button');settings.type='button';settings.className='library-settings-open';settings.textContent='Einstellungen';settings.onclick=()=>go('#settings');page.querySelector('.library-head').append(settings);}
+  
   renderWebAccountLine(page);
   const records = trips(); page.querySelector('.media-count').textContent = records.length + ' REISEN';
   const searchHost=document.createElement('div');page.querySelector('.trip-grid').before(searchHost);
@@ -2676,7 +2668,8 @@ async function shareTrip(tripId) {
 function mountTripEditButton(tripId) {
   document.querySelector('.trip-edit-open')?.remove();
   document.body.classList.toggle('trip-editing', !!tripId && tripEditing(tripId));
-  if (!tripId || !mayEditTrip(tripId) || window.ReiseNativeUI?.isReadOnlyTrip?.(tripId)) return;
+  // App and website have "Bearbeiten" in the bottom menu; no floating button.
+  if (!tripId || window.ReiseNativeUI || window.ReiseWebUI || !mayEditTrip(tripId)) return;
   const button = document.createElement('button'); button.type = 'button'; button.className = 'trip-edit-open';
   button.textContent = tripEditing(tripId) ? 'Bearbeiten aktiv' : 'Bearbeiten';
   button.setAttribute('aria-pressed', String(tripEditing(tripId)));
@@ -2776,6 +2769,8 @@ function trip(tripId, refreshed = false) {
   if(serverTrip.publication_status==='pending'){const note=document.createElement('p');note.className='trip-pending';note.textContent='Freigabe ausstehend. Diese Reise ist derzeit nur für den Importeur und die Hauptadmins sichtbar.';document.querySelector('.hero-copy')?.append(note);}
   renderRoute(String(serverTrip.id));
 }
+// World map: each trip gets its own bright colour that stands out on satellite imagery.
+const worldRouteColors=['#ff5a5f','#ffd166','#4cc9f0','#7bf1a8','#ff7ae0','#ff9f1c','#b9a4ff','#00f5d4'];
 async function renderAppleWorldMap(node, allStops) {
   const located = allStops.filter(dayStationCoordinates);
   const years = TripSearch.years(remoteTrips).length?TripSearch.years(remoteTrips):[...new Set(located.map(stop=>String(stop.trip_starts_on||stop.starts_at||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
@@ -2815,11 +2810,12 @@ async function renderAppleWorldMap(node, allStops) {
         group.sort((a,b)=>Number(a.map_position)-Number(b.map_position)||String(a.starts_at||'').localeCompare(String(b.starts_at||'')));
         group.slice(1).forEach((to,index)=>{routes.push({trip,index,from:group[index],to});map.connections.set(trip+'/'+index,{tripId:trip,fromId:String(group[index].id),toId:String(to.id)});});
       }
+      const tripColors=new Map([...groups.keys()].map((trip,i)=>[trip,worldRouteColors[i%worldRouteColors.length]]));
       // Do not start thousands of routing jobs or retain results from an old year.
       let next=0;
       const worker=async()=>{while(next<routes.length && version===generation && !map.removed && node.isConnected){
         const {trip,index,from,to}=routes[next++],a=[Number(from.latitude),Number(from.longitude)],b=[Number(to.latitude),Number(to.longitude)];
-        try{const points=await resolveWaterRoute(a,b,trip);if(version===generation && !map.removed && node.isConnected && !points?.error)await map.route(trip+'/'+index,points?.length>=2?points:[a,b]);}catch{}
+        try{const points=await resolveWaterRoute(a,b,trip);if(version===generation && !map.removed && node.isConnected && !points?.error)await map.route(trip+'/'+index,points?.length>=2?points:[a,b],tripColors.get(trip));}catch{}
       }};
       for(let i=0;i<Math.min(4,routes.length);i++)void worker();
     };
@@ -3032,7 +3028,10 @@ async function renderWorldMap() {
     // available stops are known. The view is fitted to the stops below.
     // One resize owner: the viewport observer invalidates size and fits trips
     // together, without a later competing Leaflet resize pan.
-    const map = L.map(node, { zoomControl: true, attributionControl: true, worldCopyJump: false, zoomSnap: 0.01, trackResize:false }).setView([18, 8], 2);
+    // Website and app: zoom buttons are in the bottom menu (worldMapZoom).
+    const menuZoom = !!(window.ReiseWebUI || window.ReiseNativeUI);
+    const map = L.map(node, { zoomControl: !menuZoom, attributionControl: true, worldCopyJump: false, zoomSnap: 0.01, trackResize:false }).setView([18, 8], 2);
+    window.worldMapZoom = delta => { if (!node.isConnected) return null; const zoom = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), Math.round(map.getZoom()) + delta)); map.setZoom(zoom); return zoom; };
     limitWorldMapZoom(map, L);
     addCoastalLabels(map, L);
     L.control.scale({ position: 'bottomright', metric: true, imperial: false, maxWidth: 120 }).addTo(map);
@@ -3052,7 +3051,7 @@ async function renderWorldMap() {
     select.onchange = () => { node.dataset.year = select.value;TripSearch.set('map',{...TripSearch.get('map'),year:select.value}); map.remove(); node.replaceChildren(); renderWorldMap(); };
     L.DomEvent.disableClickPropagation(filter); L.DomEvent.disableScrollPropagation(filter);
     node.append(filter);updateWorldSearchStatus(node,stops,focusTripId);
-    const colors = ['#26473e','#a34b37','#315f91','#8a5a22','#6b4679','#28736d','#9a3d60'];
+    const colors = worldRouteColors;
     const groups = new Map(); stops.forEach(stop => { const id = String(stop.trip_id); if (!groups.has(id)) groups.set(id, []); groups.get(id).push(stop); });
     // Trip names are placed at the station farthest from home (config home_location);
     // without a configured home, at the station farthest from the trip's first station.
