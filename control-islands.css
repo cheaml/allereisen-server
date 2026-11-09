@@ -252,3 +252,9 @@ html body .media-lightbox.island-slideshow>.media-playback-island>.media-map-tog
 }
 /* Seven menu entries on a narrow phone (world map with zoom): slightly smaller captions so "Einstellungen" fits. */
 @media (max-width:430px){html body :is(.journey-nav,.native-journey-nav):has(> :nth-child(7)):not(#_) .menu-caption{font-size:9px!important}}
+/* 0.3.8: on wide screens with a mouse (Windows app, web on the desktop) the bottom menu keeps the full-width bar,
+   but its buttons sit together in the centre like in the slideshow instead of being spread over the whole width. */
+@media (pointer:fine) and (min-width:700px){
+html body:not(.native-ios) :is(.native-journey-nav,.journey-nav):not(#_):not(#__){display:flex!important;justify-content:center!important;align-items:stretch!important;gap:18px!important}
+html body:not(.native-ios) :is(.native-journey-nav,.journey-nav):not(#_):not(#__)>:is(button,.journey-action,.journey-more,.native-journey-more){flex:0 0 auto!important;width:auto!important;min-width:56px!important;padding:2px 8px!important;border-radius:14px!important}
+}
