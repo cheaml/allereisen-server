@@ -919,7 +919,7 @@ function groupWebSettings(page) {
   const areas = [
     ['account', 'Anmeldung & Konto', [...pick('.settings-account'), ...pick('.admin-accounts'), ...pick('.all-trips-guest-access')]],
     ['automation', 'Reise-Automatik', pick('.native-automation-link')],
-    ['options', 'Optionen', [...pick('.native-language'), ...pick('.native-install-card')]]
+    ['options', 'Optionen', [...pick('.native-theme-card'), ...pick('.native-language'), ...pick('.native-install-card')]]
   ];
   page.querySelectorAll(':scope > .settings-group').forEach(node => node.remove());
   let open = ''; try { open = localStorage.getItem(key) || ''; } catch {}
@@ -938,7 +938,7 @@ function groupWebSettings(page) {
     set('account', [access.user?.display_name || access.user?.email, access.isAdmin ? 'Admin' : access.isGuest ? 'Gast' : ''].filter(Boolean).join(' · '));
     set('automation', 'Neue Fotos automatisch zu Reisen');
     const install = page.querySelector('.native-install-card')?.dataset.state;
-    set('options', [page.querySelector('.native-language select')?.selectedOptions[0]?.textContent, install === 'installed' ? 'als App installiert' : install === 'ready' ? 'als App installierbar' : ''].filter(Boolean).join(' · '));
+    set('options', [page.querySelector('.native-theme-card select')?.selectedOptions[0]?.textContent, page.querySelector('.native-language select')?.selectedOptions[0]?.textContent, install === 'installed' ? 'als App installiert' : install === 'ready' ? 'als App installierbar' : ''].filter(Boolean).join(' · '));
   };
   update(); page.addEventListener('change', update);
 }
@@ -990,6 +990,7 @@ function administration() {
   importButton.title = 'OneDrive, lokale Dateien oder Dropbox auswählen';
   importButton.onclick = () => go('#import');
   const grid = page.querySelector('#adminTripGrid');
+  if (window.ReiseTheme) grid.before(window.ReiseTheme.card());
   if (!access.isLocal) grid.before(renderWebInstallCard());
   groupWebSettings(page);
   if (window.ReiseWebUI) { app.append(page); return; }
@@ -1273,7 +1274,7 @@ function stationLabel(stop) {
 async function mountAppleStationMap(host, stops, tripId, { active = '', focus = '', onSelect, dayConnections = false } = {}) {
   const located = stops.filter(dayStationCoordinates);
   const map = await window.ReiseAppleMaps.mount(host, {
-    markers: located.map(stop => ({ id: String(stop.id), title: stationLabel(stop), number: stop.stationNumber, latitude: Number(stop.latitude), longitude: Number(stop.longitude), tripId, mediaId: stop.preview_id || '' })),
+    markers: located.map(stop => ({ id: String(stop.id), title: stationLabel(stop), number: stop.stationNumber, latitude: Number(stop.latitude), longitude: Number(stop.longitude), tripId, mediaId: stop.preview_id || '', color: stationDotColor(tripRouteColor(tripId)) })),
     active, focus, onSelect, onDoubleSelect:id=>startStationGroupSlideshow(stops,[id],tripId).catch(error=>alert(error.message)), onCluster: ids => startStationGroupSlideshow(stops,ids,tripId).catch(error=>alert(error.message))
   });
   if (!map) return null;
@@ -1285,7 +1286,7 @@ async function mountAppleStationMap(host, stops, tripId, { active = '', focus = 
     const start = [Number(from.latitude), Number(from.longitude)], end = [Number(to.latitude), Number(to.longitude)];
     map.connections.set(String(index),{tripId,fromId:String(from.id),toId:String(to.id)});
     resolveWaterRoute(start, end, tripId).then(points => {
-      if (!map.removed && !points?.error) return map.route(String(index), points?.length >= 2 ? points : [start, end]);
+      if (!map.removed && !points?.error) return map.route(String(index), points?.length >= 2 ? points : [start, end], tripRouteColor(tripId));
     }).catch(() => {});
   });
   refresh();
@@ -1429,10 +1430,11 @@ function installAdaptiveStationMarkers(map, L, entries) {
     const visible = entries.filter(entry => map.hasLayer(entry.marker));
     const modes = stationMarkerModes(visible, map.getZoom(),stage);if(modes.length)stage=modes[0];
     visible.forEach((entry, index) => {
-      const mode = modes[index] === 'photo' && previewUrl(entry) && !entry.imageFailed ? 'photo' : 'dot';
+      // 0.4: dots far out, small numbered dots in the trip colour in between, photos close up.
+      const mode = modes[index] === 'photo' && (!previewUrl(entry) || entry.imageFailed) ? 'number' : modes[index];
       if (entry.mode === mode) return;
       entry.mode = mode;
-      const size = mode === 'photo' ? 54 : mode === 'number' ? Math.max(40,String(entry.number).length*8+12) : 12;
+      const size = mode === 'photo' ? 54 : mode === 'number' ? Math.max(22,String(entry.number).length*7+10) : 12;
       const content = document.createElement('div');
       content.className = 'station-symbol';
       if (mode === 'photo') {
@@ -2024,6 +2026,14 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     // Map switch in the bottom bar (remembered); the bar height places the map directly on top of it.
     mapToggle.addEventListener('click',()=>{try{localStorage.setItem('atlas-slideshow-map',showMap?'1':'0');}catch{}});
     playback.append(mapToggle);
+    // 0.4: "Übersicht" in the bar replaces the close button at the top: it ends the slideshow at the trip
+    // overview of the day being shown (Esc on the computer and the back gesture on the iPhone still close it).
+    const overviewTrip=items.find(item=>item?.tripId)?.tripId;
+    const overviewButton=document.createElement('button');overviewButton.type='button';overviewButton.className='media-overview-button';
+    if(globalThis.ReiseIcons)ReiseIcons.apply(overviewButton,'days','Übersicht');else{overviewButton.textContent='Übersicht';overviewButton.setAttribute('aria-label','Übersicht');}
+    overviewButton.onclick=()=>{const day=currentStop?stopDay(currentStop.starts_at):'';dialog.close();
+      if(overviewTrip&&typeof go==='function')go(`#trip/${encodeURIComponent(overviewTrip)}`+(day?`/day/${day}`:''));};
+    playback.append(overviewButton);
     const barSpace=()=>{if(dialog.isConnected)dialog.style.setProperty('--slide-bar-space',Math.max(0,dialog.getBoundingClientRect().bottom-playback.getBoundingClientRect().top)+'px');};
     if(typeof ResizeObserver==='function'){const watch=new ResizeObserver(barSpace);watch.observe(dialog);watch.observe(playback);dialog.addEventListener('close',()=>watch.disconnect());}
     requestAnimationFrame(barSpace);
@@ -2852,7 +2862,10 @@ function trip(tripId, refreshed = false) {
 const worldRouteColors=['#ff5a5f','#ffd166','#4cc9f0','#7bf1a8','#ff7ae0','#ff9f1c','#b9a4ff','#00f5d4'];
 // 0.3.8: stations are plain dots, a little darker than their connecting line (cream lines: warm beige).
 const stationDotColor=line=>{const m=/^#([0-9a-f]{6})$/i.exec(line||'');if(!m)return '#d6c29c';const n=parseInt(m[1],16);return '#'+[16,8,0].map(shift=>Math.round(((n>>shift)&255)*.78).toString(16).padStart(2,'0')).join('');};
-const worldTripColor=(stops,tripId)=>{const order=[...new Set(stops.map(stop=>String(stop.trip_id)))];return worldRouteColors[Math.max(0,order.indexOf(String(tripId)))%worldRouteColors.length];};
+// 0.4: every trip keeps one colour, derived from its id: the same on the world map, the trip map and the day maps,
+// whatever filter is active (before, the colour followed the trip's position in the visible list).
+const tripRouteColor=tripId=>{let hash=2166136261;for(const char of String(tripId??''))hash=Math.imul(hash^char.codePointAt(0),16777619)>>>0;return worldRouteColors[hash%worldRouteColors.length];};
+const worldTripColor=(stops,tripId)=>tripRouteColor(tripId);
 async function renderAppleWorldMap(node, allStops) {
   const located = allStops.filter(dayStationCoordinates);
   const years = TripSearch.years(remoteTrips).length?TripSearch.years(remoteTrips):[...new Set(located.map(stop=>String(stop.trip_starts_on||stop.starts_at||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
@@ -2892,7 +2905,7 @@ async function renderAppleWorldMap(node, allStops) {
         group.sort((a,b)=>Number(a.map_position)-Number(b.map_position)||String(a.starts_at||'').localeCompare(String(b.starts_at||'')));
         group.slice(1).forEach((to,index)=>{routes.push({trip,index,from:group[index],to});map.connections.set(trip+'/'+index,{tripId:trip,fromId:String(group[index].id),toId:String(to.id)});});
       }
-      const tripColors=new Map([...groups.keys()].map((trip,i)=>[trip,worldRouteColors[i%worldRouteColors.length]]));
+      const tripColors=new Map([...groups.keys()].map(trip=>[trip,tripRouteColor(trip)]));
       // Do not start thousands of routing jobs or retain results from an old year.
       let next=0;
       const worker=async()=>{while(next<routes.length && version===generation && !map.removed && node.isConnected){
@@ -3153,7 +3166,7 @@ async function renderWorldMap() {
       addStationRole(group[0], 'station-first');
       addStationRole(group[group.length - 1], 'station-last');
       group.forEach((stop, index) => { stop.mapNumber = stop.stationNumber || index + 1; });
-      const color = colors[colorIndex++ % colors.length];
+      const color = tripRouteColor(tripId); colorIndex++;
       const routePoints = group.map(stop => [Number(stop.latitude), Number(stop.longitude)]);
       const origin = home || L.latLng(Number(group[0].latitude), Number(group[0].longitude));
       const farthest = group.reduce((best, stop) =>
@@ -3600,13 +3613,13 @@ async function renderRoute(serverId) {
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16, attribution: 'Tiles &copy; Esri' }).addTo(map);
     const points = geo.map(stop => [Number(stop.latitude), Number(stop.longitude)]);
     map.setView(points[0], 6, { animate: false });
-    let routeArrows = addRouteDirectionArrows(map, points, '#fffaf0', serverId);
+    let routeArrows = addRouteDirectionArrows(map, points, tripRouteColor(serverId), serverId);
     const routeMarkers = [];
     geo.forEach((stop, index) => {
       const stationRole = [index === 0 ? 'station-first' : '', index === geo.length - 1 ? 'station-last' : ''].filter(Boolean).join(' ');
       const icon = L.divIcon({ className: 'route-station-marker', iconSize: [14,14], iconAnchor: [7,7] });
       const marker = L.marker([Number(stop.latitude), Number(stop.longitude)], { icon, draggable: canEditTrip(), zIndexOffset: index === 0 ? 10000 : 0 }).addTo(map);
-      routeMarkers.push({ marker, stop, number: stop.stationNumber, role: stationRole, tripId: serverId,
+      routeMarkers.push({ marker, stop, number: stop.stationNumber, role: stationRole, tripId: serverId, dot: stationDotColor(tripRouteColor(serverId)),
         open: () => go(`#trip/${encodeURIComponent(serverId)}/station/${encodeURIComponent(stop.id)}`) });
       if (canEditTrip()) {
         marker.on('dragstart', () => marker.__previousPosition = marker.getLatLng());
@@ -3625,7 +3638,7 @@ async function renderRoute(serverId) {
             stop.latitude = point.lat; stop.longitude = point.lng;
             points[index] = [point.lat, point.lng];
             map.removeLayer(routeArrows);
-            routeArrows = addRouteDirectionArrows(map, points, '#fffaf0', serverId);
+            routeArrows = addRouteDirectionArrows(map, points, tripRouteColor(serverId), serverId);
             marker.bindTooltip(stop.name || 'Station', { direction: 'top', offset: [0, -8] });
           } catch {
             marker.setLatLng(marker.__previousPosition);
@@ -3675,7 +3688,10 @@ initializeAuthenticatedArchive();
   // 0.3.4: no automatic return; only the handle, the tab or a page change bring the menu back.
   const later = () => {};
   const yieldMenu = () => {
-    if (!menu() || document.querySelector('dialog[open]')) return;
+    // iOS with the native bar (native-bar.js): the bar lies above the Apple map and stays, like in Apple Maps.
+    // 0.4: the website keeps its menu fixed everywhere (on the computer it holds the map zoom buttons).
+    if (!native()) return;
+    if (!menu() || document.querySelector('dialog[open]') || document.body.classList.contains('native-bar')) return;
     if (!handle) {
       handle = document.createElement('button'); handle.type = 'button'; handle.className = 'menu-yield-handle'; handle.setAttribute('aria-label', 'Menü einblenden');
       // Tab at the right edge for the floating buttons (Einstellungen, Reise bearbeiten).

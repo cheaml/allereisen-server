@@ -302,3 +302,11 @@ html body .settings-area .hint{font-size:13px}
 html body .media-lightbox:not(#_):not(#__) .media-slide-story.media-station-map-only{background:transparent!important;border:0!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;pointer-events:none!important}
 html body .media-lightbox:not(#_):not(#__) .media-slide-story.media-station-map-only>:not(.media-station-intro-map){display:none!important}
 html body .media-lightbox:not(#_):not(#__) .media-slide-story.media-station-map-only .media-station-intro-map{pointer-events:auto!important}
+/* 0.4: active editing in the bottom menu is red (orange stays for start and chosen stations). */
+html body :is(.native-journey-nav,.journey-nav):not(#_):not(#__) [aria-pressed=true]{color:#ff5c52!important}
+/* 0.4: numbered stations in between dots and photos: a small dot in the trip colour with a white number. */
+html body .route-station-marker.marker-number:not(#_):not(#__) .station-symbol{background:var(--station-dot,#9c8a6a)!important;color:#fff!important;border:0!important;outline:0!important;border-radius:11px!important;box-shadow:0 1px 3px rgba(0,0,0,.6)!important;font:700 11px/1 var(--font-body,system-ui),sans-serif!important;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+html body .route-station-marker.marker-number.station-first:not(#_):not(#__) .station-symbol{background:#f2a052!important;color:#1d1a16!important;text-shadow:none}
+html body .route-station-marker.marker-number.station-active:not(#_):not(#__) .station-symbol{background:#f2a052!important;color:#1d1a16!important;text-shadow:none;box-shadow:0 0 0 3px rgba(255,250,240,.85),0 1px 4px rgba(0,0,0,.6)!important}
+/* 0.4: the slideshow is left via "Übersicht" in the bar; no close button at the top any more. */
+html body .media-lightbox.island-slideshow:not(#_):not(#__)>.media-lightbox-close{display:none!important}

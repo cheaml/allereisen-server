@@ -1,0 +1,51 @@
+/* 0.4: dark appearance (Einstellungen > Optionen > Darstellung: Dunkel, or "Wie System" on a dark device).
+   theme.js sets <html data-theme="dark">. Many colours of the light design are written directly into the
+   stylesheets, so this file overrides the visible surfaces one by one. Maps, photos and the slideshow keep
+   their own (already dark) look; the accents stay orange and green. */
+:root[data-theme=dark]{
+  --d-page:#121715; --d-surface:#1a211f; --d-surface2:#222b28; --d-raised:#2b3531; --d-border:#3a4843;
+  --d-text:#ebe4d6; --d-muted:#b2a998; --d-green:#9fd3bd; --d-accent:#f2a052; --d-link:#ff9d88;
+  --ink:#ebe4d6; --paper:#121715; --pine:#9fd3bd; --muted:#a3ada7; --line:#3a4843;
+  color-scheme:dark;
+}
+:root[data-theme=dark] body:not(#_){background:var(--d-page)!important;color:var(--d-text)}
+
+/* Page backgrounds */
+:root[data-theme=dark] :is(#app,.library-page,.settings-page,.station-page,.unified-day-page,.help-page,.import-page,.native-settings,.map-page .hero-copy,.native-archive,.native-welcome):not(#_):not(#__){background:var(--d-page)!important;color:var(--d-text)!important}
+
+/* Fixed header lines */
+:root[data-theme=dark] :is(.page-topbar,.trip-topbar,.trip-day-heading):not(#_):not(#__){background:rgba(18,23,21,.95)!important;box-shadow:0 1px 0 var(--d-border)!important;border-color:var(--d-border)!important}
+
+/* Cards and panels */
+:root[data-theme=dark] :is(.trip-card,.import-card,.settings-area,.help-card,.unified-day-overview,.unified-day-header,.station-page-head,.station-layout,.station-note-section,.archive-connection-status,.trip-search,.admin-accounts,.all-trips-guest-access,.share-sheet,.native-save-status,.native-swipe-guide,.journey-more[open],.native-journey-more[open] > :not(summary)):not(#_):not(#__){background:var(--d-surface)!important;border-color:var(--d-border)!important;color:var(--d-text)!important;box-shadow:none!important}
+:root[data-theme=dark] dialog:not(.media-lightbox):not(#_):not(#__){background:var(--d-surface)!important;color:var(--d-text)!important;border-color:var(--d-border)!important}
+:root[data-theme=dark] .settings-area[open]>summary:not(#_){border-bottom-color:var(--d-border)!important}
+:root[data-theme=dark] .settings-area>:not(summary)+:not(summary):not(#_):not(#__){border-top-color:var(--d-border)!important}
+:root[data-theme=dark] .settings-area>summary::after{border-color:var(--d-muted)!important}
+
+/* Day cards: the chosen day keeps a warm orange tone */
+:root[data-theme=dark] .journey-day-card:not(#_):not(#__){background:var(--d-surface2)!important;border-color:var(--d-border)!important;color:var(--d-text)!important}
+:root[data-theme=dark] .journey-day-card:is([aria-current],[aria-pressed=true],.active,.selected,:first-child[aria-selected=true]):not(#_):not(#__),
+:root[data-theme=dark] .journey-day-card.is-active:not(#_):not(#__){background:#4a3520!important;border-color:var(--d-accent)!important}
+
+/* Text inside the content */
+:root[data-theme=dark] :is(#app,dialog:not(.media-lightbox),.native-save-status) :is(h1,h2,h3,h4,p,strong,b,span,summary,label,small,li,dt,dd,legend,figcaption):not(.station-symbol):not(.station-symbol *):not(.leaflet-container *):not(.menu-caption):not(#_){color:var(--d-text)!important}
+:root[data-theme=dark] :is(h1,h2,h3) em:not(#_),:root[data-theme=dark] :is(.settings-area-title,.trip-card h3,.page-topbar h1,.page-topbar-title):not(#_):not(#__){color:var(--d-green)!important}
+:root[data-theme=dark] :is(.hint,.eyebrow,.settings-area-status,.page-topbar-sub,.archive-account-line,.overview-participants,.overview-description,.journey-day-weather,.media-count,.settings-intro,.station-day-intro small):not(#_):not(#__){color:var(--d-muted)!important}
+:root[data-theme=dark] #app a:not(.primary):not(.leaflet-container a):not(#_){color:var(--d-green)}
+
+/* Form fields */
+:root[data-theme=dark] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea):not(#_):not(#__){background:var(--d-surface2)!important;color:var(--d-text)!important;border-color:var(--d-border)!important}
+:root[data-theme=dark] :is(input,select,textarea)::placeholder{color:#8d8678}
+
+/* Buttons in the content (not the bottom menu, the slideshow or the maps) */
+:root[data-theme=dark] #app button:not(.primary):not(.native-icon-button):not(.journey-day-card):not(.leaflet-container button):not(#_),
+:root[data-theme=dark] dialog:not(.media-lightbox) button:not(.primary):not(#_){background:var(--d-surface2);color:var(--d-text);border-color:var(--d-border)}
+:root[data-theme=dark] :is(.edit-link,.trip-open,.search-reset,.back,.help-back,.station-map-link):not(#_):not(#__){background:#2a211d!important;color:var(--d-link)!important;border-color:#6a3b30!important}
+:root[data-theme=dark] :is(.primary,button.primary,a.primary):not(#_):not(#__){background:#e9dcc6!important;color:#1d1a16!important;border-color:#e9dcc6!important}
+:root[data-theme=dark] :is(.danger,button.danger):not(#_):not(#__){background:#5b1f1a!important;color:#ffd9d3!important;border-color:#a4302a!important}
+:root[data-theme=dark] :is(button.selected,.station-preview):not(#_):not(#__){background:var(--d-raised)!important;color:var(--d-text)!important}
+
+/* Trip card covers without a photo and placeholders */
+:root[data-theme=dark] :is(.trip-cover,.station-preview,.station-thumb):not(#_){background-color:var(--d-raised)!important}
+:root[data-theme=dark] :is(.archive-account-button,.archive-account-line button):not(#_):not(#__){background:transparent!important;border-color:transparent!important;color:var(--d-muted)!important}
