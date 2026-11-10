@@ -137,6 +137,15 @@ final class TravelAutomationRunner {
         }
         $result['scanComplete']=$scan===null||$scan===[];
         $result['pending']=count(array_filter($state['jobs'],static fn($j)=>$j['status']!=='imported'));
+        // 0.3.8: a catch-up period counts as done once a complete discovery cycle with these dates finished
+        // and no discovered capture still waits for registration. The dates stay in force (no double trips);
+        // the settings page only shows them as done and offers empty fields for a new period.
+        $period=[$s['backfillFrom']??null,$s['backfillUntil']??null];
+        if(!$dryRun&&$period[0]!==null&&$result['status']==='ready'&&$result['scanComplete']
+            &&!array_filter($state['jobs'],static fn($j)=>$j['status']==='discovered'&&!isset($j['blocked']))){
+            if([$state['backfillDone']['from']??null,$state['backfillDone']['until']??null]!==$period){$state['backfillDone']=['from'=>$period[0],'until'=>$period[1],'at'=>$now->format(DATE_ATOM)];$persist();}
+        }
+        if(isset($state['backfillDone'])&&[$state['backfillDone']['from'],$state['backfillDone']['until']]===$period)$result['backfillDone']=$state['backfillDone'];
         $issues=[];foreach($state['seen'] as $id=>$e)if($e['review']??false)$issues[$id]=true;
         foreach($state['jobs'] as $id=>$j)if(isset($j['blocked'])||$j['status']==='review')$issues[$id]=true;
         $result['review']=count($issues);

@@ -2,7 +2,7 @@
   "id": "./",
   "name": "AlleReisen",
   "short_name": "AlleReisen",
-  "description": "Deine Reisen, Orte und Erinnerungen auf iPhone und iPad.",
+  "description": "Deine Reisen, Orte und Erinnerungen auf iPhone, iPad und Computer.",
   "lang": "de",
   "start_url": "./#home",
   "scope": "./",

@@ -884,14 +884,71 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
       if (trip.source_provider === 'onedrive') datedAction(captureDates, trip.capture_dates_updated_at);
 
 }
+// Web app on the computer (replaces the Windows app): Edge and Chrome offer an install prompt, which the
+// settings show as a button; Safari and other browsers get the step-by-step page instead.
+let webInstallPrompt = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); webInstallPrompt = event; document.dispatchEvent(new Event('atlas-install-changed')); });
+  window.addEventListener('appinstalled', () => { webInstallPrompt = null; document.dispatchEvent(new Event('atlas-install-changed')); });
+}
+const webAppInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function renderWebInstallCard() {
+  const card = document.createElement('section'); card.className = 'import-card native-install-card';
+  const title = document.createElement('h2'); title.textContent = 'Als App installieren';
+  const text = document.createElement('p'); text.className = 'hint';
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'primary'; button.textContent = 'ALS APP INSTALLIEREN';
+  const guide = document.createElement('a'); guide.className = 'edit-link'; guide.href = './installieren.html'; guide.textContent = 'Anleitung für iPhone, iPad und Computer';
+  const update = () => {
+    const installed = webAppInstalled();
+    card.dataset.state = installed ? 'installed' : webInstallPrompt ? 'ready' : 'manual';
+    text.textContent = installed ? 'AlleReisen läuft bereits als App in einem eigenen Fenster.'
+      : webInstallPrompt ? 'Öffnet AlleReisen künftig in einem eigenen Fenster, mit Symbol im Startmenü bzw. Dock.'
+      : 'In Edge oder Chrome: Symbol „App installieren“ in der Adresszeile. In Safari: Teilen → „Zum Home-Bildschirm“ bzw. „Zum Dock hinzufügen“.';
+    button.hidden = installed || !webInstallPrompt; guide.hidden = installed;
+    card.closest('.settings-page')?.dispatchEvent(new Event('change'));
+  };
+  button.onclick = async () => { const prompt = webInstallPrompt; if (!prompt) return; button.disabled = true; try { await prompt.prompt(); await prompt.userChoice; } catch {} finally { webInstallPrompt = null; button.disabled = false; update(); } };
+  document.addEventListener('atlas-install-changed', () => { if (card.isConnected) update(); });
+  card.append(title, text, button, guide); update(); return card;
+}
+// 0.3.8: website settings in the same drop-down areas as the app (native-ui.js groupSettings): one open at a time,
+// a status line while closed, the last open area remembered. Cards are only moved, their behaviour is unchanged.
+function groupWebSettings(page) {
+  const key = 'atlas-settings-open';
+  const pick = selector => [...page.querySelectorAll(':scope > ' + selector)];
+  const areas = [
+    ['account', 'Anmeldung & Konto', [...pick('.settings-account'), ...pick('.admin-accounts'), ...pick('.all-trips-guest-access')]],
+    ['automation', 'Reise-Automatik', pick('.native-automation-link')],
+    ['options', 'Optionen', [...pick('.native-language'), ...pick('.native-install-card')]]
+  ];
+  page.querySelectorAll(':scope > .settings-group').forEach(node => node.remove());
+  let open = ''; try { open = localStorage.getItem(key) || ''; } catch {}
+  const sections = [];
+  for (const [area, title, cards] of areas) {
+    if (!cards.length) continue;
+    const details = document.createElement('details'); details.className = 'settings-area'; details.dataset.area = area; details.setAttribute('name', 'settings-area');
+    const summary = document.createElement('summary'), text = document.createElement('span'), name = document.createElement('span'), status = document.createElement('span');
+    text.className = 'settings-area-text'; name.className = 'settings-area-title'; name.textContent = title; status.className = 'settings-area-status'; text.append(name, status); summary.append(text);
+    details.append(summary, ...cards); details.open = area === open; sections.push(details);
+    details.addEventListener('toggle', () => { if (details.open) { sections.forEach(other => { if (other !== details) other.open = false; }); try { localStorage.setItem(key, area); } catch {} } else if (!sections.some(other => other.open)) { try { localStorage.removeItem(key); } catch {} } });
+  }
+  const grid = page.querySelector('#adminTripGrid'); if (grid) grid.before(...sections); else page.append(...sections);
+  const set = (area, value) => { const node = page.querySelector(`.settings-area[data-area="${area}"] .settings-area-status`); if (node) node.textContent = value; };
+  const update = () => {
+    set('account', [access.user?.display_name || access.user?.email, access.isAdmin ? 'Admin' : access.isGuest ? 'Gast' : ''].filter(Boolean).join(' · '));
+    set('automation', 'Neue Fotos automatisch zu Reisen');
+    const install = page.querySelector('.native-install-card')?.dataset.state;
+    set('options', [page.querySelector('.native-language select')?.selectedOptions[0]?.textContent, install === 'installed' ? 'als App installiert' : install === 'ready' ? 'als App installierbar' : ''].filter(Boolean).join(' · '));
+  };
+  update(); page.addEventListener('change', update);
+}
 function administration() {
   if (window.ReiseNativeUI) { window.ReiseNativeUI.archive({ app, go }); return; }
   // Trip administration for owners (own trips); app administration sections only for administrators.
   if (!access.loggedIn) { go('#home'); return; }
   app.replaceChildren(); headerTitle.textContent = 'EINSTELLUNGEN';
   const page = document.createElement('section'); page.className = 'library-page settings-page';
-  page.innerHTML = '<button class="back" type="button">← ALLE REISEN</button><div class="library-head"><div><p class="eyebrow">FÜR ALLE REISEN</p><h1>Deine <em>Einstellungen.</em></h1></div></div><p class="settings-intro">Was hier steht, gilt für alle Reisen. Texte, Stationen, Strecken und Fotos einer einzelnen Reise änderst du in der Reise über „Reise bearbeiten“.</p><h2 class="settings-group">Konto</h2><div class="settings-account"></div><div id="adminTripGrid" hidden></div>';
-  page.querySelector('.back').onclick = () => go('#library');
+  page.innerHTML = '<div class="library-head"><div><p class="eyebrow">FÜR ALLE REISEN</p><h1>Deine <em>Einstellungen.</em></h1></div></div><p class="settings-intro">Was hier steht, gilt für alle Reisen. Texte, Stationen, Strecken und Fotos einer einzelnen Reise änderst du in der Reise über „Reise bearbeiten“.</p><h2 class="settings-group">Konto</h2><div class="settings-account"></div><div id="adminTripGrid" hidden></div>';
   { const host = page.querySelector('.settings-account'); const card = renderArchiveConnectionStatus(page, webArchiveStatusRows()); card.querySelector('h2')?.remove(); host.append(card);
     const links = [['Abmelden', './api/logout.php'], ['Mit anderem Microsoft-Konto anmelden', './login.html'], ['Gastzugang öffnen', './gastzugang.html']];
     for (const [label, url] of links) { const link = document.createElement('a'); link.className = 'edit-link'; link.textContent = label; link.href = url; host.append(link); }
@@ -933,6 +990,8 @@ function administration() {
   importButton.title = 'OneDrive, lokale Dateien oder Dropbox auswählen';
   importButton.onclick = () => go('#import');
   const grid = page.querySelector('#adminTripGrid');
+  if (!access.isLocal) grid.before(renderWebInstallCard());
+  groupWebSettings(page);
   if (window.ReiseWebUI) { app.append(page); return; }
   if (access.isAdmin || access.canImport) page.querySelector('.library-head').append(importButton);
   apiFetch('./api/api.php?action=trips', { credentials: 'same-origin', cache: 'no-store' }).then(async response => {
@@ -1370,7 +1429,7 @@ function installAdaptiveStationMarkers(map, L, entries) {
     const visible = entries.filter(entry => map.hasLayer(entry.marker));
     const modes = stationMarkerModes(visible, map.getZoom(),stage);if(modes.length)stage=modes[0];
     visible.forEach((entry, index) => {
-      const mode = modes[index] === 'photo' && (!previewUrl(entry) || entry.imageFailed) ? 'number' : modes[index];
+      const mode = modes[index] === 'photo' && previewUrl(entry) && !entry.imageFailed ? 'photo' : 'dot';
       if (entry.mode === mode) return;
       entry.mode = mode;
       const size = mode === 'photo' ? 54 : mode === 'number' ? Math.max(40,String(entry.number).length*8+12) : 12;
@@ -1381,6 +1440,7 @@ function installAdaptiveStationMarkers(map, L, entries) {
         image.addEventListener('error', () => { entry.imageFailed = true; update(); }, { once: true });
         content.append(image);
       } else if (mode === 'number') content.textContent = entry.number;
+      if (entry.dot) content.style.setProperty('--station-dot', entry.dot);
       entry.marker.setIcon(L.divIcon({ className: `route-station-marker marker-${mode} ${entry.role}`, html: content, iconSize: [size,size], iconAnchor: [size/2,size/2] }));
       entry.marker.getElement()?.setAttribute('aria-label', description(entry));
     });
@@ -2238,6 +2298,25 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     swipe = { id: event.pointerId, x: event.clientX, y: event.clientY };
   });
   dialog.addEventListener('pointercancel', () => { swipe = null; });
+  // 0.3.8: two fingers zoom the photo itself (the app no longer lets the whole page zoom); the point between
+  // the fingers stays in place. One finger then moves the zoomed photo as before.
+  let pinch = null;
+  const fingers = event => Math.hypot(event.touches[0].clientX - event.touches[1].clientX, event.touches[0].clientY - event.touches[1].clientY) || 1;
+  dialog.addEventListener('touchstart', event => {
+    if (event.touches.length !== 2 || !(currentMedia instanceof HTMLImageElement)) return;
+    const viewport = event.target.closest?.('.media-slide-viewport'); if (!viewport) return;
+    pinch = { viewport, distance: fingers(event), zoom }; swipe = null; dragging = null;
+  }, { passive: true });
+  dialog.addEventListener('touchmove', event => {
+    if (!pinch || event.touches.length !== 2) return;
+    event.preventDefault();
+    const { viewport } = pinch, box = viewport.getBoundingClientRect(), before = zoom;
+    const midX = (event.touches[0].clientX + event.touches[1].clientX) / 2 - box.left, midY = (event.touches[0].clientY + event.touches[1].clientY) / 2 - box.top;
+    zoom = Math.min(4, Math.max(1, pinch.zoom * fingers(event) / pinch.distance)); applyZoom();
+    if (zoom > 1 && before > 0) { const ratio = zoom / before; viewport.scrollLeft = (viewport.scrollLeft + midX) * ratio - midX; viewport.scrollTop = (viewport.scrollTop + midY) * ratio - midY; }
+  }, { passive: false });
+  const endPinch = event => { if (!pinch || event.touches.length >= 2) return; pinch = null; suppressTapUntil = Date.now() + 500; if (zoom < 1.05) { zoom = 1; applyZoom(); } };
+  dialog.addEventListener('touchend', endPinch, { passive: true }); dialog.addEventListener('touchcancel', endPinch, { passive: true });
   dialog.addEventListener('pointerup', event => {
     const start = swipe; swipe = null;
     if (!start || start.id !== event.pointerId || zoom !== 1) return;
@@ -2301,7 +2380,7 @@ addEventListener('hashchange', () => render());
 let adminHelpView = 'viewer';
 function solutionHelpCards() {
   return `<section class="help-card"><span>LÖSUNGEN / IOS</span><h2>iOS-App beziehen</h2><p>AlleReisen gibt es als iOS-App für iPhone und iPad im App Store.</p><p>Voraussetzung: iOS beziehungsweise iPadOS ab Version 16. Die App nutzt Fotoalben einschließlich iCloud-Fotos und OneDrive. Vorhandene Texte, Reisedaten und Vorschauen bleiben auf dem Gerät verfügbar; Originale aus iCloud oder OneDrive können eine Internetverbindung benötigen.</p></section>
-<section class="help-card"><span>LÖSUNGEN / WINDOWS</span><h2>Windows-App beziehen</h2><p>Die Windows-App erhältst du als ZIP-Paket. Frage deine Kontaktperson nach dem aktuellen Paket, entpacke es vollständig in einen eigenen Ordner und starte „Start-Reisen.cmd“.</p><p>Voraussetzung: ein Windows-PC mit 64-Bit-Intel-/AMD-Prozessor und Windows 10 ab Version 1809 oder Windows 11. Die App nutzt lokale Fotoordner und OneDrive. Lokale Originalordner müssen erreichbar bleiben. Für OneDrive und den Abgleich mit Web ist Internet erforderlich.</p></section>
+<section class="help-card"><span>LÖSUNGEN / COMPUTER</span><h2>Als App am Computer</h2><p>Am Computer installierst du AlleReisen direkt aus Edge oder Chrome: in den Einstellungen unter „Optionen“ auf „Als App installieren“ tippen, oder in der Adresszeile das Symbol „App installieren“ wählen. AlleReisen öffnet sich dann in einem eigenen Fenster mit eigenem Symbol im Startmenü bzw. Dock.</p><p>Die Web-App lädt deine Reisen vom Server und braucht Internet. Mit der Maus wechselst du Fotos über die Pfeile, mit der Tastatur über die Pfeiltasten; Esc schließt die Diashow. Die bisherige Windows-App aus dem Microsoft Store funktioniert weiter, wird aber nicht mehr weiterentwickelt.</p></section>
 <section class="help-card"><span>LÖSUNGEN / WEB</span><h2>Web auf einem eigenen Server</h2><p>Web läuft im Browser und benötigt bei den Betrachtern keine App-Installation. Für einen eigenen Server sind die Web-Dateien als Open-Source-Installationspaket (AGPL-3.0) mit Datenbankschema, Konfigurationsvorlage und Installationsanleitung beziehbar. Ein gewöhnliches Homepage-Baukasten-Angebot oder rein statischer Web-Speicher reicht nicht aus.</p><p>Die drei Lösungen können einzeln oder gemeinsam genutzt werden. OneDrive-Reisen lassen sich zwischen den Apps und Web abgleichen. Lokale Ordner und iCloud-Fotoalben bleiben Quellen der jeweiligen App; sie werden nicht als Web-Reisen veröffentlicht. In Web werden auch Reisezugriffe und Einladungen verwaltet.</p></section>
 <section class="help-card"><span>WEB / PROVIDER-VORAUSSETZUNGEN</span><h2>Was dein Web-Provider anbieten muss</h2><p>Eine eigene Domain oder Subdomain mit HTTPS, PHP ab 8.4 sowie MySQL ab 8.0 oder MariaDB ab 10.11 mit InnoDB und utf8mb4. Benötigte PHP-Erweiterungen: PDO/MySQL, cURL, OpenSSL, mbstring, EXIF, fileinfo, session und JSON. Für HEIC/HEIF-Fotos ist zusätzlich Imagick mit ImageMagick und funktionierendem libheif-Decoder erforderlich.</p><p>Apache 2.4 muss die mitgelieferten .htaccess-Schutzregeln und Header erlauben; bei Nginx muss der Provider gleichwertige Regeln einrichten. PHP benötigt Schreibzugriff auf Cache und temporäre Ordner sowie ausgehende HTTPS-Verbindungen zu Microsoft und den verwendeten Karten-/Wetterdiensten. Als Ausgangspunkt sind 256 MB PHP-Arbeitsspeicher und mindestens 120 Sekunden Laufzeit für Importe vorgesehen; große Reisen benötigen gegebenenfalls mehr.</p><p>Erforderlich sind außerdem genügend Speicher für Karten, Vorschauen und Sicherungen sowie Zugang zum Hochladen der Dateien und Einrichten der Datenbank. Für automatische Import- und Übernahmejobs werden PHP über die Kommandozeile und planbare Cronjobs benötigt. Lass den Provider diese Punkte vorab bestätigen; nach der Einrichtung müssen Anmeldung, Zugriffsschutz und Medienanzeige geprüft werden.</p></section>
 <section class="help-card"><span>WEB / EINRICHTUNG</span><h2>Eigene Konten und Dienste</h2><p>Für die eigene Web-Installation werden eine Microsoft-App-Registrierung mit passenden Rücksprungadressen der eigenen HTTPS-Domain und eigene Zugangsdaten eingerichtet. OneDrive benötigt ein passendes Microsoft-Konto. Karten, Wetter und weitere optionale Dienste werden für die eigene Installation konfiguriert; mögliche Kosten und Nutzungsbedingungen sind vorab zu klären. Zugangsdaten und Schlüssel dürfen nicht öffentlich abrufbar sein.</p><p>Das Web-Paket enthält keine Hosting-Laufzeit, persönlichen Zugangsdaten oder Originalfotos. Der Provider stellt Web-Server, PHP und Datenbank bereit. Die technische Installationsanleitung und die Installationsprüfung liegen dem Paket bei.</p></section>`;
@@ -2771,6 +2850,9 @@ function trip(tripId, refreshed = false) {
 }
 // World map: each trip gets its own bright colour that stands out on satellite imagery.
 const worldRouteColors=['#ff5a5f','#ffd166','#4cc9f0','#7bf1a8','#ff7ae0','#ff9f1c','#b9a4ff','#00f5d4'];
+// 0.3.8: stations are plain dots, a little darker than their connecting line (cream lines: warm beige).
+const stationDotColor=line=>{const m=/^#([0-9a-f]{6})$/i.exec(line||'');if(!m)return '#d6c29c';const n=parseInt(m[1],16);return '#'+[16,8,0].map(shift=>Math.round(((n>>shift)&255)*.78).toString(16).padStart(2,'0')).join('');};
+const worldTripColor=(stops,tripId)=>{const order=[...new Set(stops.map(stop=>String(stop.trip_id)))];return worldRouteColors[Math.max(0,order.indexOf(String(tripId)))%worldRouteColors.length];};
 async function renderAppleWorldMap(node, allStops) {
   const located = allStops.filter(dayStationCoordinates);
   const years = TripSearch.years(remoteTrips).length?TripSearch.years(remoteTrips):[...new Set(located.map(stop=>String(stop.trip_starts_on||stop.starts_at||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
@@ -2787,7 +2869,7 @@ async function renderAppleWorldMap(node, allStops) {
       if(version!==generation || !node.isConnected)return;
       const stops = located.filter(stop => focusTrip ? String(stop.trip_id) === String(focusTrip) : worldTripMatches(stop,{...TripSearch.get('map'),year:select.value}));
       updateWorldSearchStatus(node,stops,focusTrip);
-      const markers = stops.map(stop => ({ id: String(stop.id), title: `${stop.trip_title || 'Reise'} · ${stationLabel(stop)}`, number: stop.stationNumber, latitude: Number(stop.latitude), longitude: Number(stop.longitude), tripId: stop.trip_id, mediaId: stop.preview_id || '' }));
+      const markers = stops.map(stop => ({ id: String(stop.id), title: `${stop.trip_title || 'Reise'} · ${stationLabel(stop)}`, number: stop.stationNumber, latitude: Number(stop.latitude), longitude: Number(stop.longitude), tripId: stop.trip_id, mediaId: stop.preview_id || '', color: stationDotColor(worldTripColor(stops, stop.trip_id)) }));
       if(current && !current.removed)await current.setMarkers(markers);
       else current=await window.ReiseAppleMaps.mount(node,{world:true,markers});
       const map=current;
@@ -3096,7 +3178,7 @@ async function renderWorldMap() {
       const tooltip = document.createElement('span');
       tooltip.textContent = `${stop.trip_title} · ${isMainLocation ? 'HAUPTORT: ' : ''}${stop.name || 'Station'}`;
       marker.bindTooltip(tooltip, { direction: 'top', offset: [0,-10] });
-      return { marker, stop, number: stop.mapNumber, role: markerRole(stop), tripId: stop.trip_id, open: () => openServerTrip(stop.trip_id) };
+      return { marker, stop, number: stop.mapNumber, role: markerRole(stop), tripId: stop.trip_id, dot: stationDotColor(worldTripColor(stops, stop.trip_id)), open: () => openServerTrip(stop.trip_id) };
     });
     // This applies only to the world overview. Individual trip maps have their
     // own fitBounds handling remains unchanged. Include labels in the
@@ -3584,7 +3666,11 @@ initializeAuthenticatedArchive();
   if (typeof document === 'undefined') return;
   let timer = 0, start = null, yielding = false, handle = null, userInput = 0;
   const menu = () => document.querySelector('.native-journey-nav,.journey-nav');
-  const onMap = target => target instanceof Element && !!target.closest('.leaflet-container,.apple-map-host') && !target.closest('dialog,button,a,input,select,.leaflet-control');
+  // 0.3.8 app (iOS, Windows, Android): the menu yields only on the world map and the trip map; on "Alle Reisen",
+  // the trip overview and the settings it stays fixed (also while a small day map there is moved).
+  const native = () => !!window.ReiseNativeUI;
+  const mapPage = () => !!document.querySelector('#app > .world-page,#app > .map-page');
+  const onMap = target => target instanceof Element && !!target.closest('.leaflet-container,.apple-map-host') && !target.closest('dialog,button,a,input,select,.leaflet-control') && (!native() || mapPage());
   const restore = () => { clearTimeout(timer); yielding = false; document.body.classList.remove('menu-yielding'); };
   // 0.3.4: no automatic return; only the handle, the tab or a page change bring the menu back.
   const later = () => {};
@@ -3614,13 +3700,13 @@ initializeAuthenticatedArchive();
   // the app itself (page change, jump to a station) does not: it needs a recent touch, wheel or key.
   for (const type of ['touchmove', 'pointerdown', 'keydown']) document.addEventListener(type, () => { userInput = Date.now(); }, { capture: true, passive: true });
   document.addEventListener('scroll', event => {
-    if (Date.now() - userInput > 800) return;
+    if (native() || Date.now() - userInput > 800) return;
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest('dialog,.leaflet-container,.apple-map-host')) return;
     yieldMenu(); later();
   }, { capture: true, passive: true });
   // Native Apple maps report their own gestures (the WebView does not see these touches).
-  document.addEventListener('ReiseMapMove', event => { if (!event.target.closest?.('dialog')) yieldMenu(); });
+  document.addEventListener('ReiseMapMove', event => { if (!event.target.closest?.('dialog') && (!native() || mapPage())) yieldMenu(); });
   document.addEventListener('ReiseMapMoveEnd', later);
   window.addEventListener('hashchange', restore);
 })();

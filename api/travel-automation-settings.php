@@ -35,7 +35,8 @@ function travel_last_run(string $privateDirectory):?array {
     $at=is_string($status['at']??null)?strtotime($status['at']):false;if($at===false)return null;
     $reason=is_string($status['reason']??null)?$status['reason']:null;
     return ['at'=>$at,'ok'=>($status['status']??'')==='ready','reason'=>$reason,'connectionProblem'=>in_array($reason,TRAVEL_CONNECTION_PROBLEMS,true),
-        'imported'=>(int)($status['imported']??0),'review'=>(int)($status['review']??0)];
+        'imported'=>(int)($status['imported']??0),'review'=>(int)($status['review']??0),
+        'backfillDone'=>is_array($status['backfillDone']??null)&&is_string($status['backfillDone']['from']??null)?$status['backfillDone']:null];
 }
 
 /** Plain reasons and what to do for captures the automation could not classify. */
@@ -98,7 +99,7 @@ function travel_latest_captures(string $privateDirectory):array {
 
 /** The browser may change preferences, never owner, tool paths or state location. */
 function travel_preferences(array $base,array $input):array {
-    $keys=['sourceFolder','latitude','longitude','radiusKm','timezone','enabled','smallPhotos','backfillFrom','stationRadiusKm','quietDays','homeBreakHours','homeName','minPhotoShortSide','minVideoShortSide','frequentRuns','mode','backfillUntil'];
+    $keys=['sourceFolder','latitude','longitude','radiusKm','timezone','enabled','smallPhotos','backfillFrom','stationRadiusKm','quietDays','homeBreakHours','homeName','minPhotoShortSide','minVideoShortSide','frequentRuns','mode','backfillUntil','backfillKeep'];
     for($i=1;$i<=TRAVEL_EXTRA_HOMES;$i++)array_push($keys,'extraHomeName'.$i,'extraHomeLatitude'.$i,'extraHomeLongitude'.$i);
     if(array_diff(array_keys($input),$keys))throw new InvalidArgumentException('unknown_preference');
     foreach(['sourceFolder','timezone'] as $key)if(!is_string($input[$key]??null))throw new InvalidArgumentException('invalid_preference');
@@ -131,6 +132,9 @@ function travel_preferences(array $base,array $input):array {
         $base['extraHomes'][]=['name'=>trim($name),'latitude'=>(float)$lat,'longitude'=>(float)$lon];
     }
     if(!is_string($input['backfillFrom']??null))throw new InvalidArgumentException('invalid_start_time');
+    // A finished catch-up shows empty fields; saving them unchanged keeps the finished period in force.
+    $keep=($input['backfillKeep']??'')==='1'&&trim($input['backfillFrom'])===''&&trim((string)($input['backfillUntil']??''))==='';
+    if($keep){unset($input['backfillKeep']);return travel_settings($base);}
     // A plain date (date field) means the start of that day in the automation's time zone.
     $day=static function(string $value,string $zone):?string{$value=trim($value);if($value==='')return null;
         if(preg_match('/^\d{4}-\d{2}-\d{2}$/D',$value)){try{$date=DateTimeImmutable::createFromFormat('!Y-m-d',$value,new DateTimeZone($zone));}catch(Exception){$date=false;}if(!$date)throw new InvalidArgumentException('invalid_start_time');return $date->format('Y-m-d\TH:i:sP');}
