@@ -49,3 +49,19 @@
 /* Trip card covers without a photo and placeholders */
 :root[data-theme=dark] :is(.trip-cover,.station-preview,.station-thumb):not(#_){background-color:var(--d-raised)!important}
 :root[data-theme=dark] :is(.archive-account-button,.archive-account-line button):not(#_):not(#__){background:transparent!important;border-color:transparent!important;color:var(--d-muted)!important}
+
+/* Members & rights (admin accounts, import rights, reviews, guests): rows and guest chips. */
+:root[data-theme=dark] :is(.admin-account-row,.all-trips-guest-list > span,.native-server-admin .admin-account-list > *):not(#_):not(#__){background:var(--d-surface2)!important;border-color:var(--d-border)!important;color:var(--d-text)!important}
+:root[data-theme=dark] .admin-account-row :is(strong,small,span):not(#_){color:inherit!important}
+:root[data-theme=dark] .admin-account-row small:not(#_):not(#__){color:var(--d-muted)!important}
+:root[data-theme=dark] .all-trips-guest-list > span button:not(#_):not(#__){background:transparent!important;color:var(--d-link)!important;border:0!important}
+:root[data-theme=dark] .native-server-admin > summary:not(#_){color:var(--d-text)!important}
+:root[data-theme=dark] .trip-editor-inline:not(#_):not(#__){background:var(--d-surface)!important;border-color:var(--d-border)!important;color:var(--d-text)!important}
+:root[data-theme=dark] .trip-editor-inline > .eyebrow:not(#_):not(#__){color:var(--d-link)!important}
+:root[data-theme=dark] .trip-editor-danger:not(#_):not(#__){border-color:var(--d-border)!important}
+:root[data-theme=dark] .trip-editor-delete:not(#_):not(#__){color:var(--d-link)!important;border-color:var(--d-link)!important}
+/* Edit mode (0.4.1): trip editor sections, station photo tools and their inputs stay readable in dark mode. */
+:root[data-theme=dark] :is(.trip-editor-inline,.trip-management,.station-layout,.station-management,.unified-day-page) :is(summary,button:not(.primary):not(.danger):not(.trip-editor-delete),input:not([type=checkbox]):not([type=radio]),textarea,select):not(#_):not(#__){background:var(--d-surface2)!important;color:var(--d-text)!important;border-color:var(--d-border)!important}
+:root[data-theme=dark] :is(.trip-management-section,.trip-management-body,.trip-overview-management,.trip-editor-tools):not(#_):not(#__){background:transparent!important;color:var(--d-text)!important}
+:root[data-theme=dark] :is(.media-remove-bar,.manual-route-editor,.station-media-tools,.station-media-actions):not(#_):not(#__){background:var(--d-surface)!important;color:var(--d-text)!important;border-color:var(--d-border)!important}
+:root[data-theme=dark] :is(.media-remove-bar,.manual-route-editor) :is(p,span,label,strong,.hint):not(#_):not(#__){color:var(--d-text)!important}

@@ -13,8 +13,8 @@ function renderTripReview(page, anchor) {
       const row = document.createElement('div'); row.className = 'admin-account-row';
       const title = document.createElement('strong'); title.textContent = trip.title;
       const details = document.createElement('small'); details.textContent = 'Importiert von ' + (trip.importer_name || trip.importer_email) + ' · ' + trip.media_count + ' Medien';
-      const preview = document.createElement('a'); preview.className = 'edit-link'; preview.href = '#trip/' + encodeURIComponent(trip.id); preview.textContent = 'REISE PRÜFEN';
-      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'primary'; approve.textContent = 'REISE FREIGEBEN';
+      const preview = document.createElement('a'); preview.className = 'edit-link'; preview.href = '#trip/' + encodeURIComponent(trip.id); preview.textContent = 'Reise prüfen';
+      const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'primary'; approve.textContent = 'Reise freigeben';
       approve.onclick = async () => {
         if (busy) return; busy = true; section.querySelectorAll('button').forEach(button => { button.disabled = true; });
         try {

@@ -94,9 +94,9 @@
         catch (error) { if (!closed) status.textContent = error.message; }
         finally { busy = false; if (!closed) actions.querySelectorAll('button').forEach(b => b.disabled = false); }
       };
-      button('SPEICHERN', () => commit(false));
-      button('ABBRECHEN', close);
-      button('AUTOMATISCHE STRECKE WIEDERHERSTELLEN', () => commit(true));
+      button('Speichern', () => commit(false));
+      button('Abbrechen', close);
+      button('Automatische Strecke wiederherstellen', () => commit(true));
       container.append(heading, hint, actions, status); panel.onAdd = () => container; panel.addTo(map);
       L.DomEvent.disableClickPropagation(container); L.DomEvent.disableScrollPropagation(container);
       const redraw = () => {

@@ -32,6 +32,20 @@ Die bisherige persönliche Automatik ist ein anderer Worker mit eigenen Regeln u
 - Fehlende GPS-Daten (ohne die Option oben), Aufnahmezeit, Auflösung oder mehrdeutige Metadaten ergeben einen Prüffall. Eine solche Aufnahme gilt nicht als nachgewiesenes Heimatfoto.
 - Verspätete Uploads werden anhand ihrer Aufnahmezeit eingeordnet. Würde ein nachträgliches Heimatfoto bereits zugeordnete Reisen teilen, hält die Automatik die betroffenen Zuordnungen an und meldet einen Prüffall. Sie verschiebt keine bereits importierten Fotos heimlich in andere Reisen. Gleichzeitige widersprüchliche Heimat-/Außenaufnahmen sind ebenfalls Prüffälle.
 
+## Reise aufzeichnen (iPhone-App): drei Wege zur Reise
+
+Mit **Reise aufzeichnen** merkt sich die iPhone-App während einer Reise etwa alle 50 m den Standort. Gestartet und beendet wird mit dem Knopf **Reise starten / Reise beenden** oben auf der Weltkarte oder unter *Einstellungen › Reise aufzeichnen*. Die Bewegungsdaten bleiben auf dem iPhone und werden nach 6 Monaten automatisch gelöscht (vorher jederzeit von Hand). Aus jeder Aufzeichnung entsteht genau **eine Reise** mit Stationen und den tatsächlich zurückgelegten Strecken. Die App wählt den Weg selbst:
+
+| Weg | Voraussetzung | Was passiert |
+|---|---|---|
+| **Full** | Eigener Server mit dieser Automatik für dein Konto, Kamerafotos werden nach OneDrive hochgeladen | Während der Aufzeichnung sammelt die Automatik alle deine Fotos dieser Zeit in einer eigenen Reise „Reise ab TT.MM.JJJJ“ – auch wenn die App geschlossen ist. Entfernung vom Heimatpunkt und Funkstille spielen dabei keine Rolle, Stationen entstehen schon ab 300 m, und der Cronjob arbeitet auch tagsüber (höchstens alle 10 Minuten), selbst wenn die Automatik sonst nur nachts oder gar nicht läuft. Die App trägt die Strecken ein, sobald die Reise auf dem iPhone ankommt. |
+| **Semi · OneDrive** | OneDrive in der App verbunden, keine eigene Automatik | Nach dem Beenden – oder beim nächsten Öffnen der App – findet die App die Fotos der Aufzeichnung im OneDrive-Kameraordner und schlägt eine Reise vor. Ein Tipp legt sie samt Strecken an; mit verbundenem Server wird sie wie jede OneDrive-Reise dorthin übertragen. |
+| **Semi · Mediathek** | ohne OneDrive | Wie oben, aus der Fotos-Mediathek des iPhones. Die Reise bleibt auf dem iPhone. Bei eingeschränktem Fotozugriff sieht die App nur die freigegebenen Fotos. |
+
+**Eine Aufzeichnung, eine Reise:** Die App merkt sich zu jeder beendeten Aufzeichnung die daraus entstandene Reise. Liefert der eigene Server eine Reise, wird diese verknüpft und kein zweiter Vorschlag gemacht; gibt es auf dem iPhone schon eine Reise mit Fotos aus dieser Zeit, gilt die Aufzeichnung ebenfalls als erledigt. Hat der Server am Tag nach der Aufzeichnung noch keine Reise geliefert (etwa weil der Cronjob steht), bietet die App den Semi-Weg an. Bei OneDrive wartet sie bis zu drei Tage, falls das iPhone die Fotos noch hochlädt.
+
+Die Automatik läuft pro Server für **ein** Konto (`ownerEmail`). Weitere Personen auf demselben Server nutzen die Semi-Wege. An den Server meldet die App beim Starten und Beenden nur **Beginn und Ende** der Aufzeichnung sowie den Teilnehmernamen aus *Einstellungen › Schritte* (neue automatische Reisen bekommen ihn als Teilnehmer). Die Bewegungsdaten selbst verlassen das iPhone nie.
+
 ## Installation durch den Websitebetreiber
 
 1. Website und Datenbank sichern. Das Serverpaket enthält die optionalen PHP-Dateien, **keine** persönlichen Einstellungen, Microsoft-Tokens oder Cronjobs.
@@ -66,17 +80,17 @@ Jede Zuordnung läuft so: Original mit seiner exakten Version lesen → Inhalt p
 
 ## Nächtlicher Betrieb und Kontrolle
 
-Beispiel für einen bestehenden Hosting-Cronplan (alle fünf Minuten, absolute Pfade ersetzen):
+Empfohlener Hosting-Cronplan (alle 10 Minuten, absolute Pfade ersetzen). Den Abstand kannst und sollst du nach eigener Einschätzung anpassen: seltener schont Server und OneDrive-Abfragen, häufiger bringt Fotos einer laufenden Reise schneller in die Reise.
 
 ```cron
-*/5 * * * * /PFAD/ZU/php /PFAD/ZUR/WEBSITE/tools/travel-automation.php night --config /PRIVAT/settings.json >> /PRIVAT/cron.log 2>&1
+*/10 * * * * /PFAD/ZU/php /PFAD/ZUR/WEBSITE/tools/travel-automation.php night --config /PRIVAT/settings.json >> /PRIVAT/cron.log 2>&1
 ```
 
 Der Modus `night` startet nur zwischen 00:00 und 06:00 in der konfigurierten Zeitzone; außerhalb dieses Fensters beendet er sich ohne Datenbank- oder OneDrive-Zugriff. `run` bleibt für einen ausdrücklich gestarteten manuellen Import verfügbar.
 
 Ein Lauf verarbeitet ausschließlich Aufnahmezeiten **vor dem heutigen Tagesbeginn** in deiner Zeitzone. Neue Vortagsaufnahmen werden damit ab Mitternacht berücksichtigt. Die Uhrzeit des Hosting-Cronservers ist unabhängig davon; der Worker berechnet die Grenze selbst einschließlich Sommer-/Winterzeit. Der Import kann sich bei großen Beständen über mehrere begrenzte Läufe verteilen. Erst ein vollständiger Scan darf Zuordnungen eintragen, damit die beliebige OneDrive-Ordnerreihenfolge keine Reisegrenzen erfindet. Ein Dateilimit und ein Zeitbudget begrenzen jeden Lauf; ein privates Lock verhindert parallele Ausführung.
 
-**Auch tagsüber alle 10 Minuten** (Schalter auf der Automatikseite und in der App unter Einstellungen → Reise-Automatik): Dann arbeitet derselbe Cronjob auch tagsüber, höchstens alle 10 Minuten (nachts bei jedem Aufruf), und berücksichtigt auch heutige Aufnahmen bis 5 Minuten vor dem Lauf. So erscheinen Reisefotos schon während der Reise, etwa 5 bis 15 Minuten nachdem sie in OneDrive angekommen sind. Voraussetzung ist der Cronplan oben (`*/5` oder `*/10`). Jeder Lauf liest dabei den überwachten Ordner in OneDrive neu ein. Bei sehr großen Ordnern lieber einen engeren Ordner wählen (zum Beispiel nur das laufende Jahr) oder bei der nächtlichen Verarbeitung bleiben.
+**Auch tagsüber alle 10 Minuten** (Schalter auf der Automatikseite und in der App unter Einstellungen → Reise-Automatik): Dann arbeitet derselbe Cronjob auch tagsüber, höchstens alle 10 Minuten (nachts bei jedem Aufruf), und berücksichtigt auch heutige Aufnahmen bis 5 Minuten vor dem Lauf. So erscheinen Reisefotos schon während der Reise, etwa 5 bis 15 Minuten nachdem sie in OneDrive angekommen sind. Voraussetzung ist der Cronplan oben (`*/10`, wahlweise `*/5`). Jeder Lauf liest dabei den überwachten Ordner in OneDrive neu ein. Bei sehr großen Ordnern lieber einen engeren Ordner wählen (zum Beispiel nur das laufende Jahr) oder bei der nächtlichen Verarbeitung bleiben.
 
 **Welche Aufnahmen zählen:** Die Automatikseite zeigt Auflösung und Kamera deiner zuletzt verarbeiteten Fotos und Videos. Die Untergrenze für Fotos (kürzere Seite) und Videos ist wählbar, auch genau die Größe deiner Kamera. Standard: Fotos über 2.000 px, Videos ab Full HD.
 

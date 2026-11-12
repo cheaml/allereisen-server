@@ -15,6 +15,9 @@ try{
     $s=travel_settings(json_decode((string)file_get_contents($settingsPath),true,32,JSON_THROW_ON_ERROR));
     // Daytime runs (frequentRuns) at most every TRAVEL_FREQUENT_INTERVAL_SECONDS, however often the cron calls.
     $daytime=false;
+    // 0.4.1: an active trip recording from the app runs the automation every ten minutes, also when it is off.
+    $recordingActive=travel_recording_active(travel_recordings(travel_private_directory($settingsPath,$s['ownerEmail'])))!==null;
+    if($recordingActive){$s['enabled']=true;$s['frequentRuns']=true;}
     if($mode==='night'){$daytime=!travel_is_night($s,new DateTimeImmutable('now'));if($daytime&&empty($s['frequentRuns'])){echo '{"status":"outside_night_window","jobsStarted":false}'.PHP_EOL;exit(0);}$mode='run';}
     if($mode==='validate'){echo '{"status":"configuration_valid","jobsStarted":false}'.PHP_EOL;exit(0);}
     $private=travel_private_directory($settingsPath,$s['ownerEmail']);
@@ -52,7 +55,7 @@ try{
     $metadata=static function(array $chain)use($graph,$token,$scope,$private,$s,$root):array{$quick=travel_listing_metadata($chain[0])??(empty($s['smallPhotos'])?travel_listing_without_gps($chain[0],time()):null);$read=$quick!==null?['chain'=>$chain,'metadata'=>$quick,'downloaded'=>false]:pipeline_metadata(fn($path)=>$graph->get($path),$token,$chain,$scope,TravelGraph::FIELDS,$private,$s['exiftool'],$s['perl']);$m=$read['metadata'];$read['place']=isset($m['latitude'],$m['longitude'])?pipeline_place((float)$m['latitude'],(float)$m['longitude'],$root.'/map-labels'):'Reise';return $read;};
     // Originals stay in place: verify the current source version/hash and bind it to the journey.
     $register=static function(array $job,array $trip)use($graph,$rootItem,$owner,$dbFactory,$token,$private,$s):array{
-        $jobScope=new TravelOneDriveScope($rootItem,$job['sourceFolder']);
+        $jobScope=new TravelOneDriveScope($rootItem,$job['sourceFolder']);$trip['participants']=travel_owner_participant($private);
         return automation_register_original($dbFactory(),(int)$owner['id'],$token,$job,$trip,$jobScope,fn($path)=>$graph->get($path),TravelGraph::FIELDS,$private,$s['exiftool'],$s['perl']);
     };
     $backup=static function(string $day)use($private,$dbFactory,$owner):void{$path=$private.'/catalog-before-'.$day.'.json';if(is_file($path))return;$db=$dbFactory();$db->beginTransaction();try{$q=$db->prepare('SELECT * FROM trips WHERE user_id=?');$q->execute([$owner['id']]);$data=['trips'=>$q->fetchAll(PDO::FETCH_ASSOC)];foreach(['trip_stops','media_items','trip_day_summaries'] as $table){$q=$db->prepare('SELECT x.* FROM '.$table.' x JOIN trips t ON t.id=x.trip_id WHERE t.user_id=?');$q->execute([$owner['id']]);$data[$table]=$q->fetchAll(PDO::FETCH_ASSOC);}$db->commit();travel_save($path,$data);}catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}};

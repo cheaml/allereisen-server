@@ -24,7 +24,7 @@ window.AtlasStationActions = Object.freeze({
   };
   const run=async action=>{if(busy)return;busy=true;section.querySelectorAll('button,select,input').forEach(n=>n.disabled=true);status.textContent='';try{await action()}catch(error){status.textContent=error.message}finally{busy=false;section.querySelectorAll('button,select,input').forEach(n=>n.disabled=false)}};
   if(!media.length){
-   const remove=document.createElement('button');remove.type='button';remove.className='edit-link';remove.textContent='LEERE STATION LÖSCHEN';
+   const remove=document.createElement('button');remove.type='button';remove.className='edit-link';remove.textContent='Leere Station löschen';
    remove.onclick=()=>run(async()=>{
     const preview=await request();if(!preview.empty)throw Error('Die Station enthält inzwischen Medien. Bitte neu laden.');
     const message=preview.empty_day?`Station „${stop.name||'Unbenannte Station'}“ löschen? Der Tag ${preview.day} ist ohne Medien. Auch seine ${preview.station_count} leeren Stationen, ihre Stationstexte und die Tagesnotizen werden entfernt.`:`Leere Station „${stop.name||'Unbenannte Station'}“ einschließlich Stationstext löschen?`;
@@ -36,7 +36,7 @@ window.AtlasStationActions = Object.freeze({
   if(!day){
    const label=document.createElement('label');label.textContent='Reisedatum dieser Station';
    const date=document.createElement('input');date.type='date';date.required=true;date.setAttribute('aria-label','Reisedatum dieser Station');label.append(date);
-   const save=document.createElement('button');save.type='button';save.className='edit-link';save.textContent='DATUM ZUORDNEN';
+   const save=document.createElement('button');save.type='button';save.className='edit-link';save.textContent='Datum zuordnen';
    const hint=document.createElement('p');hint.textContent='Ordnet die Station einem Reisetag zu. Die Originaldateien und ihre Aufnahmezeiten bleiben unverändert.';
    save.onclick=()=>{if(!date.reportValidity())return;run(async()=>{const result=await request({operation:'date',day:date.value});onChanged();go('#trip/'+tripId+'/day/'+date.value);});};
    section.append(label,save,hint);
@@ -45,7 +45,7 @@ window.AtlasStationActions = Object.freeze({
    const label=document.createElement('label');label.textContent='Zielstation zum Zusammenführen';
    const select=document.createElement('select');select.setAttribute('aria-label','Zielstation zum Zusammenführen');
    for(const target of targets){const option=document.createElement('option');option.value=target.id;option.textContent=(target.name||'Unbenannte Station')+' · '+String(target.starts_at||'').slice(11,16);select.append(option)}
-   label.append(select);const merge=document.createElement('button');merge.type='button';merge.className='edit-link';merge.textContent='STATIONEN ZUSAMMENFÜHREN';
+   label.append(select);const merge=document.createElement('button');merge.type='button';merge.className='edit-link';merge.textContent='Stationen zusammenführen';
    merge.onclick=()=>run(async()=>{
     const target=targets.find(s=>String(s.id)===select.value);
     if(!await confirmAction(`„${stop.name||'Unbenannte Station'}“ mit „${target.name||'Unbenannte Station'}“ zusammenführen? Alle Medien werden der Zielstation zugeordnet und beide Stationstexte bleiben erhalten. Die Ausgangsstation wird entfernt.`,'Stationen zusammenführen'))return;

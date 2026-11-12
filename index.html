@@ -24,8 +24,9 @@
 <link rel="stylesheet" href="./trip-search.css?v=0.2.48">
 <link rel="stylesheet" href="./journey-ui.css?v=20261103">
 <link rel="stylesheet" href="./actions.css?v=20261105-k3">
-<link rel="stylesheet" href="./control-islands.css?v=20261110-theme">
-<link rel="stylesheet" href="./theme-dark.css?v=20261110"></head>
+<link rel="stylesheet" href="./control-islands.css?v=20261112-edit">
+<link rel="stylesheet" href="./theme-dark.css?v=20261112-users">
+<link rel="stylesheet" href="./buttons.css?v=20261112-buttons"></head>
 <body>
 <div class="noise">
 </div>
@@ -34,10 +35,10 @@
   <span>AlleReisen</span></a>
 <div class="trip-label" id="headerTitle">ALLEREISEN</div>
 <nav class="main-menu" aria-label="Hauptnavigation">
-<button class="header-menu-button" id="archiveMenu" type="button">ALLE REISEN</button>
+<button class="header-menu-button" id="archiveMenu" type="button">Alle Reisen</button>
 <a class="header-menu-button online-archive-link" id="onlineArchiveMenu" hidden>ONLINE-REISEN ↗</a>
-<button class="header-menu-button" id="helpMenu" type="button" hidden>HILFE</button>
-<button class="header-menu-button" id="logoutMenu" type="button" hidden>ABMELDEN</button>
+<button class="header-menu-button" id="helpMenu" type="button" hidden>Hilfe</button>
+<button class="header-menu-button" id="logoutMenu" type="button" hidden>Abmelden</button>
 </nav>
 </header>
 <main id="app" aria-live="polite">
@@ -51,9 +52,9 @@
 <label id="registerName" hidden>Name <input id="loginName" type="text" autocomplete="name"></label>
 <label>E-Mail-Adresse <input id="loginEmail" type="email" autocomplete="email" required></label>
 <label>Passwort <input id="loginPassword" type="password" autocomplete="current-password" required></label>
-<button class="primary" value="default">ANMELDEN</button>
-<button class="edit-link" type="button" id="showRegister">KONTO ERSTELLEN</button>
-<a class="edit-link" href="./api/login.php">MIT MICROSOFT ANMELDEN</a>
+<button class="primary" value="default">Anmelden</button>
+<button class="edit-link" type="button" id="showRegister">Konto erstellen</button>
+<a class="edit-link" href="./api/login.php">Mit Microsoft anmelden</a>
 <p class="connection-note" id="loginNote"></p>
 </form>
 </dialog>
@@ -66,8 +67,8 @@
 </h1>
 <p class="lede" id="homeIntro">Erstelle Reisedokus aus deinen OneDrive-Aufnahmen. Family on the road ordnet Fotos und Videos nach Ort und Zeit zu einer begehbaren Route.</p>
 <a class="web-app-install" href="./installieren.html">Auf iPhone oder iPad installieren ↗</a>
-<button class="edit-link home-intro-edit" id="editHomeIntro">STARTSEITENTEXT BEARBEITEN</button>
-<a class="primary login-button" id="loginButton" href="./login.html">ANMELDEN</a>
+<button class="edit-link home-intro-edit" id="editHomeIntro">Startseitentext bearbeiten</button>
+<a class="primary login-button" id="loginButton" href="./login.html">Anmelden</a>
 <button class="primary create-button" id="createTrip">＋ NEUE REISEDOKU IMPORTIEREN</button>
 </div>
 <div class="library">
@@ -86,7 +87,7 @@
 </template>
 <template id="importTemplate">
 <section class="import-page">
-<button class="back" id="cancelImport">← ZURÜCK ZUM ARCHIV</button>
+<button class="back" id="cancelImport">← Zurück zum Archiv</button>
 <div class="import-head">
 <p class="eyebrow">NEUE REISEDOKU</p>
 <h1>Importiere deine<br>
@@ -104,7 +105,7 @@
 <label>Microsoft Graph Zugriffstoken <input id="graphToken" type="password" placeholder="Optional: Token für Live-Import">
 </label>
 <p class="hint">Mit Zugriffstoken liest Family on the road den Ordner über Microsoft Graph aus. Ohne Token wird eine Reisedoku mit Beispielstationen erstellt, die du anschließend bearbeiten kannst.</p>
-<button class="primary" id="startImport">ORDNER ANALYSIEREN</button>
+<button class="primary" id="startImport">Ordner analysieren</button>
 </section>
 <aside class="import-info">
 <p class="eyebrow">WAS WIRD ERKANNT?</p>
@@ -140,7 +141,7 @@
 <p class="lede">Die Bilder, Orte und Zeiten dieser Reise erzählen ihre Geschichte.</p>
 <div class="hero-actions">
 <button class="primary" id="editTitle" hidden>Titel bearbeiten</button>
-<button class="edit-link" id="editTripIntro" hidden>EINSTIEGSTEXT BEARBEITEN</button>
+<button class="edit-link" id="editTripIntro" hidden>Einstiegstext bearbeiten</button>
 <span class="media-count">64 Fotos · 8 Videos</span>
 </div>
 </div>
@@ -204,19 +205,19 @@
 </section>
 </template>
 <script src="./i18n.js?v=20261104"></script>
-<script src="./i18n-en.js?v=20261109-menu"></script>
-<script src="./login-fallback.js?v=20260909-2320"></script>
+<script src="./i18n-en.js?v=20261113-ways"></script>
+<script src="./login-fallback.js?v=20261112-buttons"></script>
 <script src="./station-media-cache.js?v=20261103"></script>
 <script src="./api-client.js?v=20261007-sources"></script>
-<script src="./media-importer.js?v=20261103-onedrive"></script>
-<script src="./station-actions.js?v=0.2.27"></script>
-<script src="./manual-routes.js?v=20261105-k3"></script>
+<script src="./media-importer.js?v=20261112-buttons"></script>
+<script src="./station-actions.js?v=20261112-buttons"></script>
+<script src="./manual-routes.js?v=20261112-buttons"></script>
 <script src="./reise-icons.js?v=20261109-zoom"></script>
 <script src="./journey-ui.js?v=20261109-touch"></script>
 <script src="./trip-search.js?v=20261109-year"></script>
-<script src="./trip-review-ui.js?v=20261020"></script>
-<script src="./import-permissions-ui.js?v=20261101-pending-import"></script>
-<script src="./app.js?v=20261110-fixedmenu">
+<script src="./trip-review-ui.js?v=20261112-buttons"></script>
+<script src="./import-permissions-ui.js?v=20261112-buttons"></script>
+<script src="./app.js?v=20261113-ways">
 </script>
 <script src="./app-updates.js?v=20261002-1"></script>
 </body>

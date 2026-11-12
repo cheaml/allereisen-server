@@ -47,7 +47,10 @@ function automation_catalog_import(PDO $db,int $owner,array $trip,array $record,
             $db->commit();return $mapped['trip_id'];
         }
         $q=$db->prepare('SELECT user_id FROM trips WHERE id=? FOR UPDATE');$q->execute([$trip['id']]);$tripOwner=$q->fetchColumn();
-        if($tripOwner===false){$q=$db->prepare(isset($tripColumns['source_provider'])?"INSERT INTO trips(id,user_id,title,source_provider,source_folder) VALUES(?,?,?,'onedrive',?)":"INSERT INTO trips(id,user_id,title,source_folder) VALUES(?,?,?,?)");$q->execute([$trip['id'],$owner,$trip['title'],$trip['source_folder']]);}
+        if($tripOwner===false){$q=$db->prepare(isset($tripColumns['source_provider'])?"INSERT INTO trips(id,user_id,title,source_provider,source_folder) VALUES(?,?,?,'onedrive',?)":"INSERT INTO trips(id,user_id,title,source_folder) VALUES(?,?,?,?)");$q->execute([$trip['id'],$owner,$trip['title'],$trip['source_folder']]);
+            // The owner's own camera photos: a new automatic trip starts with the owner as participant (only at creation,
+            // so a participant removed later is never added again).
+            if(isset($tripColumns['participants'])&&is_string($trip['participants']??null)&&$trip['participants']!==''){$q=$db->prepare("UPDATE trips SET participants=? WHERE id=? AND (participants IS NULL OR participants='')");$q->execute([$trip['participants'],$trip['id']]);}}
         elseif((int)$tripOwner!==$owner)throw new RuntimeException('Trip owner mismatch.');
         if($originalReference){$q=$db->prepare('UPDATE trips SET source_folder=? WHERE id=? AND user_id=?');$q->execute([$trip['source_folder'],$trip['id'],$owner]);}
         if($manual!==null){if(!isset($tripColumns['manual_starts_on'],$tripColumns['manual_ends_on']))throw new RuntimeException('manual_trip_date_schema_missing');$q=$db->prepare('SELECT COUNT(*) FROM media_items WHERE trip_id=? AND taken_at IS NOT NULL');$q->execute([$trip['id']]);if(!(int)$q->fetchColumn()){$q=$db->prepare('UPDATE trips SET manual_starts_on=?,manual_ends_on=NULL WHERE id=? AND manual_starts_on IS NULL');$q->execute([$manual,$trip['id']]);}}

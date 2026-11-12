@@ -1,0 +1,21 @@
+/* 0.4.2 (preview): one button system for app and website, close to iOS.
+   Three kinds: main action (filled tint), further action (grey fill, tint text), delete (grey fill, red text).
+   Loaded last; the glass bars, map controls and slideshow keep their own look. */
+:root{--btn-tint:#26473e;--btn-on-tint:#fff;--btn-fill:rgba(120,120,128,.14);--btn-fill-pressed:rgba(120,120,128,.24);--btn-danger:#c4372b;--btn-gap:10px}
+:root[data-theme=dark]{--btn-tint:#9fd3bd;--btn-on-tint:#10201b;--btn-fill:rgba(120,120,128,.26);--btn-fill-pressed:rgba(120,120,128,.38);--btn-danger:#ff6b5f}
+
+html:root body :is(.primary,.edit-link,a.trip-open,.admin-trip-actions > a,.admin-trip-actions > button,.source-button,.create-button,.trip-geocode-button,.menu-action button,.native-save-status :is(button,a),.import-card > button,.trip-management-body button,.settings-area button:not(.world-recording-notice-close)):not(.native-journey-nav *):not(.media-lightbox *):not(#_):not(#__):not(#___){
+  min-height:44px!important;padding:11px 16px!important;border:0!important;border-radius:12px!important;
+  background:var(--btn-fill)!important;color:var(--btn-tint)!important;box-shadow:none!important;
+  font:600 15px/1.3 -apple-system,system-ui,"Segoe UI",sans-serif!important;letter-spacing:0!important;text-transform:none!important;text-decoration:none!important}
+html:root body :is(.primary,button.primary,a.primary):not(.native-journey-nav *):not(.media-lightbox *):not(.x-p1):not(.x-p2):not(.x-p3):not(#_):not(#__):not(#___){background:var(--btn-tint)!important;color:var(--btn-on-tint)!important}
+html:root body :is(.danger,.trip-editor-delete,.native-trip-delete,.delete-trip,.native-trip-recording-clear,.trip-management-danger button):not(.native-journey-nav *):not(.media-lightbox *):not(.x-d1):not(.x-d2):not(.x-d3):not(#_):not(#__):not(#___){background:var(--btn-fill)!important;color:var(--btn-danger)!important}
+html:root body :is(.primary,.edit-link,a.trip-open,.admin-trip-actions > *,.import-card > button,.trip-management-body button):active:not(:disabled):not(#_):not(#__):not(#___){background:var(--btn-fill-pressed)!important}
+html:root body .primary:active:not(:disabled):not(#_):not(#__):not(#___){filter:brightness(.92)}
+
+/* Even spacing: buttons stacked in a card always have the same gap, whatever element they are. */
+html:root body .admin-trip-actions:not(#_):not(#__){display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:var(--btn-gap)!important}
+html:root body .admin-trip-actions > *:not(#_):not(#__){margin:0!important;width:100%!important;box-sizing:border-box}
+html:root body :is(.import-card,.trip-management-body,.native-trip-recording) > :is(button,a.edit-link,a.primary):not(#_):not(#__){margin:0!important;display:flex!important;width:100%}
+html:root body :is(.import-card,.trip-management-body,.native-trip-recording) > :is(button,a.edit-link,a.primary):not([hidden]) ~ :is(button,a.edit-link,a.primary):not(#_):not(#__){margin-top:var(--btn-gap)!important}
+html:root body :is(.import-card,.trip-management-body,.native-trip-recording) > [hidden]:not(#_):not(#__){display:none!important}

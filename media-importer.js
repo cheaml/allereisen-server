@@ -9,18 +9,18 @@ async function renderMediaImporter({ app, access, go, onImported }) {
     <aside class="source-microsoft-help hint" aria-label="Microsoft-Freigabe für den Import"><strong>Vor dem ersten OneDrive-Import</strong><p>Wähle „ONEDRIVE VERBINDEN“, melde dich mit dem Microsoft-Konto des gewünschten OneDrive an und erlaube AlleReisen den angefragten Lesezugriff auf deine Dateien und für dich freigegebene Dateien.</p><p>Auch mit Microsoft 365 Family verbindet jedes Familienmitglied sein eigenes privates Microsoft-Konto. Falls Microsoft nach dem Kontotyp fragt, wähle „Persönliches Konto“. Bestätige anschließend die angefragten Berechtigungen für AlleReisen. Eine eigene App-Registrierung und eigene App-Zugangsdaten sind nicht nötig. Ordner anderer Familienmitglieder müssen zuerst ausdrücklich für dich in OneDrive freigegeben werden; das Family-Abo allein gibt darauf keinen Zugriff.</p></aside>
     <label>Reise<select name="trip"><option value="">Neue Reise anlegen</option></select></label>
     <label class="source-folder">Ordnerpfad<input name="folder" autocomplete="off"></label>
-    <button class="secondary source-browse" type="button" hidden aria-expanded="false">ORDNER AUSWÄHLEN</button>
+    <button class="secondary source-browse" type="button" hidden aria-expanded="false">Ordner auswählen</button>
     <section class="source-folder-browser" aria-label="OneDrive-Ordner auswählen" hidden>
       <p class="source-browser-path" aria-label="Aktueller OneDrive-Pfad"></p>
       <p class="source-browser-status hint" role="status" aria-live="polite"></p>
       <ul class="source-folder-list" aria-label="OneDrive-Ordnerbaum"></ul>
-      <div class="source-folder-actions"><button class="primary source-folder-use" type="button">DIESEN ORDNER VERWENDEN</button><button class="secondary source-folder-close" type="button">SCHLIESSEN</button></div>
+      <div class="source-folder-actions"><button class="primary source-folder-use" type="button">Diesen Ordner verwenden</button><button class="secondary source-folder-close" type="button">Schließen</button></div>
     </section>
-    <p class="source-hint hint"></p><button class="secondary source-connect" type="button" hidden>DROPBOX VERBINDEN</button>
+    <p class="source-hint hint"></p><button class="secondary source-connect" type="button" hidden>Dropbox verbinden</button>
     <p class="source-status" role="status" aria-live="polite">Medienquellen werden geladen …</p>
-    <div class="import-actions"><button class="primary source-submit" disabled>IMPORT STARTEN</button><button class="secondary source-cancel" type="button">ZURÜCK ZUM ARCHIV</button></div>
+    <div class="import-actions"><button class="primary source-submit" disabled>Import starten</button><button class="secondary source-cancel" type="button">Zurück zum Archiv</button></div>
   </form>`;
-  app.replaceChildren(page); document.querySelector('#headerTitle').textContent = 'MEDIEN IMPORTIEREN';
+  app.replaceChildren(page); document.querySelector('#headerTitle').textContent = 'Medien importieren';
   const form = page.querySelector('form'), fields = form.elements, status = page.querySelector('.source-status');
   const submit = page.querySelector('.source-submit'), connect = page.querySelector('.source-connect');
   const browseButton = page.querySelector('.source-browse'), browser = page.querySelector('.source-folder-browser');
@@ -91,7 +91,7 @@ async function renderMediaImporter({ app, access, go, onImported }) {
         } catch (error) {
           if (!active()) return;
           note.textContent = error.message + ' ';
-          const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'secondary'; retry.textContent = 'ERNEUT VERSUCHEN';
+          const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'secondary'; retry.textContent = 'Erneut versuchen';
           retry.onclick = () => load(node); note.append(retry); browserStatus.textContent = error.message;
         } finally { node.details.removeAttribute('aria-busy'); node.pending = null; }
       })();

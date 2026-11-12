@@ -175,6 +175,29 @@ if($action==='travel-automation'&&in_array($_SERVER['REQUEST_METHOD'],['GET','PA
     json(['available'=>true,'mode'=>travel_mode($settings),'enabled'=>(bool)($settings['enabled']??false),'frequentRuns'=>(bool)($settings['frequentRuns']??false),
         'lastRun'=>$last===null?null:['at'=>gmdate(DATE_ATOM,$last['at']),'ok'=>$last['ok'],'connectionProblem'=>$last['connectionProblem'],'imported'=>$last['imported'],'review'=>$last['review']],'reviewCount'=>$reviewCount]);
 }
+// 0.4.1: trip recording from the iPhone app ("Reise aufzeichnen"): start/stop the recording period of the
+// automation owner. Captures inside it form one trip (see travel_recordings in travel-automation.php).
+if($action==='travel-recording'&&in_array($_SERVER['REQUEST_METHOD'],['GET','POST'],true)) {
+    require_once __DIR__.'/travel-automation-settings.php';
+    require_once __DIR__.'/travel-automation.php';
+    try{$path=travel_settings_path(dirname(__DIR__),$config['travel_automation_settings_file']??null);$settings=json_decode((string)file_get_contents($path),true,32,JSON_THROW_ON_ERROR);}
+    catch(Throwable){json(['available'=>false]);}
+    $q=$db->prepare('SELECT email,is_admin FROM users WHERE id=?');$q->execute([$owner]);$user=$q->fetch();
+    if(!is_array($settings)||!$user||!(bool)$user['is_admin']||strcasecmp((string)$user['email'],(string)($settings['ownerEmail']??''))!==0)json(['available'=>false]);
+    $private=travel_private_directory($path,(string)$settings['ownerEmail']);
+    if($_SERVER['REQUEST_METHOD']==='POST'){
+        try{if(isset($input['participant']))travel_owner_participant_save($private,$input['participant']);
+            $mode=(string)($input['mode']??'');$recordings=$mode==='participant'?travel_recordings($private):travel_recording_change($private,$mode,time(),(string)($settings['timezone']??'Europe/Vienna'));}
+        catch(InvalidArgumentException){json(['error'=>'Ungültige Aufzeichnung.'],422);}
+        catch(Throwable){json(['error'=>'Die Aufzeichnung konnte am Server nicht gespeichert werden.'],500);}
+    }else $recordings=travel_recordings($private);
+    $active=travel_recording_active($recordings);$latest=$active??(end($recordings)?:null);
+    // 0.4.2: which trip the automation made from each recording (one recording, one trip), so the app links its own
+    // recording to that trip instead of offering another one.
+    $made=travel_recording_trips($private);
+    $list=array_map(static fn($r)=>['id'=>$r['id'],'title'=>$r['title'],'from'=>$r['from'],'until'=>$r['until'],'tripId'=>$made[$r['id']]??null],array_slice($recordings,-20));
+    json(['available'=>true,'active'=>$active!==null,'recording'=>$latest===null?null:['id'=>$latest['id'],'title'=>$latest['title'],'from'=>gmdate(DATE_ATOM,$latest['from']),'until'=>$latest['until']===null?null:gmdate(DATE_ATOM,$latest['until'])],'recordings'=>$list]);
+}
 if($action==='administration') {
     require_once __DIR__.'/device-sync-admin.php';
     $operation=(string)($_GET['operation']??'');

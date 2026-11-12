@@ -16,7 +16,7 @@ function renderImportPermissions(page, anchor) {
       if(account.microsoft_connected!==undefined&&!Number(account.microsoft_connected))label.textContent+=' · Importrecht vorgemerkt; Microsoft-Anmeldung ausstehend';
       const enabled = !!Number(account.is_admin) || !!Number(account.can_import);
       const button = document.createElement('button'); button.type = 'button'; button.className = 'edit-link';
-      button.textContent = Number(account.is_admin) ? 'AKTIV DURCH ADMINROLLE' : enabled ? 'IMPORTRECHT ENTZIEHEN' : 'IMPORTRECHT ERTEILEN';
+      button.textContent = Number(account.is_admin) ? 'AKTIV DURCH ADMINROLLE' : enabled ? 'Importrecht entziehen' : 'Importrecht erteilen';
       button.disabled = !data.can_manage || !!Number(account.is_admin); button.setAttribute('aria-label', button.textContent + ': ' + account.email);
       button.onclick = async () => {
         if (busy) return; busy = true; section.querySelectorAll('button').forEach(b => { b.disabled = true; });

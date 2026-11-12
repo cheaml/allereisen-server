@@ -5,7 +5,7 @@ const app=document.querySelector('#app'),image=id=>/^(?:\.\/|https?:)/.test(id)?
 
 const baseTrip={id:'',title:'',folder:'',date:'',media:0,stops:[],cover:'1524413840807-0c3cb6fa808d'};let access={loggedIn:null,isAdmin:false};
 ;;
-async function eraseTrip(id){let trip=trips().find(t=>t.id===id);if(!trip||!confirm(`„${trip.title}“ wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`))return;let button=document.querySelector(`[data-delete-trip="${id}"]`);if(button){button.disabled=true;button.textContent='WIRD GELÖSCHT …'};try{if(trip.serverId){let r=await apiFetch('./api/api.php?action=trip',{method:'DELETE',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:trip.serverId})});if(!r.ok)throw new Error('Die Reisedoku konnte auf dem Server nicht gelöscht werden.')}localSave(JSON.parse(localStorage.getItem(tripsKey)||'[]').filter(t=>t.id!==id));remoteTrips=remoteTrips.filter(t=>t.id!==id);render()}catch(error){if(button){button.disabled=false;button.textContent='REISE LÖSCHEN'}alert(error.message)}}
+async function eraseTrip(id){let trip=trips().find(t=>t.id===id);if(!trip||!confirm(`„${trip.title}“ wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`))return;let button=document.querySelector(`[data-delete-trip="${id}"]`);if(button){button.disabled=true;button.textContent='Wird gelöscht …'};try{if(trip.serverId){let r=await apiFetch('./api/api.php?action=trip',{method:'DELETE',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:trip.serverId})});if(!r.ok)throw new Error('Die Reisedoku konnte auf dem Server nicht gelöscht werden.')}localSave(JSON.parse(localStorage.getItem(tripsKey)||'[]').filter(t=>t.id!==id));remoteTrips=remoteTrips.filter(t=>t.id!==id);render()}catch(error){if(button){button.disabled=false;button.textContent='Reise löschen'}alert(error.message)}}
 let leafletLoader;function loadLeaflet(){if(window.L)return Promise.resolve(window.L);if(leafletLoader)return leafletLoader;leafletLoader=new Promise((resolve,reject)=>{let css=document.createElement('link');css.rel='stylesheet';css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.append(css);let script=document.createElement('script');script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';script.onload=()=>resolve(window.L);script.onerror=reject;document.head.append(script)});return leafletLoader}
 
 // Named coastal features are separate from the satellite tiles and route markers.
@@ -291,7 +291,7 @@ async function aiProposals(tripId, stops) {
     const dialog = document.createElement('dialog');
     const card = document.createElement('section');
     card.style.cssText = 'background:#f4f0e8;padding:32px;max-width:720px';
-    card.innerHTML = '<button style="float:right;border:0;background:none;font-size:28px">×</button><p class="eyebrow">GEMINI-TEXTVORSCHLÄGE</p><h2>Reise</h2><p></p><button class="primary" id="applyTripIntro">EINSTIEG ÜBERNEHMEN</button><h2>Stationen</h2>';
+    card.innerHTML = '<button style="float:right;border:0;background:none;font-size:28px">×</button><p class="eyebrow">GEMINI-TEXTVORSCHLÄGE</p><h2>Reise</h2><p></p><button class="primary" id="applyTripIntro">Einstieg übernehmen</button><h2>Stationen</h2>';
     card.querySelector('button').onclick = () => dialog.close();
     card.querySelector('p:last-of-type').textContent = text.reise || '';
     const applyIntro = card.querySelector('#applyTripIntro');
@@ -320,14 +320,14 @@ async function aiProposals(tripId, stops) {
   }
 }
 async function addAiButton(tripId){if(!canEditTrip())return;let actions=document.querySelector('.hero-actions');if(!actions||document.querySelector('#aiProposals'))return;let stops=await apiFetch(`./api/api.php?action=stops&trip=${encodeURIComponent(tripId)}`,{credentials:'same-origin'}).then(r=>r.ok?r.json():null);if(!stops?.stops?.some(s=>s.preview_id))return;let button=document.createElement('button');button.id='aiProposals';button.className='primary';button.textContent='KI-TEXTVORSCHLÄGE';button.onclick=()=>aiProposals(tripId,stops.stops);actions.append(button)}
-async function editTripTexts(tripId){let response=await apiFetch(`./api/api.php?action=stops&trip=${encodeURIComponent(tripId)}`,{credentials:'same-origin'}),data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Texte konnten nicht geladen werden.');let dialog=document.createElement('dialog'),card=document.createElement('form');card.method='dialog';card.className='dialog-card';card.style.maxWidth='760px';card.innerHTML='<button class="close" value="cancel">×</button><p class="eyebrow">KI- UND STATIONSTEXTE</p><h2>Texte bearbeiten</h2><div class="text-editor-list"></div><button class="primary" value="default">ÄNDERUNGEN SPEICHERN</button>';let list=card.querySelector('.text-editor-list');(data.stops||[]).forEach(stop=>{let label=document.createElement('label'),area=document.createElement('textarea');label.textContent=stop.name||'Station';area.dataset.stop=stop.id;area.value=stop.summary||'';area.rows=4;area.style.cssText='display:block;width:100%;margin:7px 0 18px;padding:10px;border:1px solid #bfc3bb;background:#fbfaf6;font:14px/1.5 "DM Sans"';label.append(area);list.append(label)});card.addEventListener('submit',async event=>{event.preventDefault();let save=card.querySelector('.primary');save.disabled=true;try{await Promise.all([...list.querySelectorAll('textarea')].filter(area=>area.value.trim()).map(area=>apiFetch('./api/api.php?action=stop',{method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:area.dataset.stop,trip:tripId,summary:area.value.trim()})}).then(r=>{if(!r.ok)throw new Error()})));dialog.close()}catch{alert('Ein Text konnte nicht gespeichert werden.')}finally{save.disabled=false}});dialog.append(card);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal()}
-function addTextEditorButton(tripId){if(!canEditTrip())return;let actions=document.querySelector('.hero-actions');if(!actions||document.querySelector('#editTripTexts'))return;let button=document.createElement('button');button.id='editTripTexts';button.className='primary';button.textContent='KI-TEXTE BEARBEITEN';button.onclick=()=>editTripTexts(tripId).catch(error=>alert(error.message));actions.append(button)}
+async function editTripTexts(tripId){let response=await apiFetch(`./api/api.php?action=stops&trip=${encodeURIComponent(tripId)}`,{credentials:'same-origin'}),data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Texte konnten nicht geladen werden.');let dialog=document.createElement('dialog'),card=document.createElement('form');card.method='dialog';card.className='dialog-card';card.style.maxWidth='760px';card.innerHTML='<button class="close" value="cancel">×</button><p class="eyebrow">KI- UND STATIONSTEXTE</p><h2>Texte bearbeiten</h2><div class="text-editor-list"></div><button class="primary" value="default">Änderungen speichern</button>';let list=card.querySelector('.text-editor-list');(data.stops||[]).forEach(stop=>{let label=document.createElement('label'),area=document.createElement('textarea');label.textContent=stop.name||'Station';area.dataset.stop=stop.id;area.value=stop.summary||'';area.rows=4;area.style.cssText='display:block;width:100%;margin:7px 0 18px;padding:10px;border:1px solid #bfc3bb;background:#fbfaf6;font:14px/1.5 "DM Sans"';label.append(area);list.append(label)});card.addEventListener('submit',async event=>{event.preventDefault();let save=card.querySelector('.primary');save.disabled=true;try{await Promise.all([...list.querySelectorAll('textarea')].filter(area=>area.value.trim()).map(area=>apiFetch('./api/api.php?action=stop',{method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:area.dataset.stop,trip:tripId,summary:area.value.trim()})}).then(r=>{if(!r.ok)throw new Error()})));dialog.close()}catch{alert('Ein Text konnte nicht gespeichert werden.')}finally{save.disabled=false}});dialog.append(card);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal()}
+function addTextEditorButton(tripId){if(!canEditTrip())return;let actions=document.querySelector('.hero-actions');if(!actions||document.querySelector('#editTripTexts'))return;let button=document.createElement('button');button.id='editTripTexts';button.className='primary';button.textContent='KI-Texte bearbeiten';button.onclick=()=>editTripTexts(tripId).catch(error=>alert(error.message));actions.append(button)}
 
-function place(tripId,id){let t=trips().find(x=>x.id===tripId)||baseTrip,s=t.stops,i=s.findIndex(x=>x[0]===id);if(i<0)return trip(tripId);let spot=s[i],k=`atlas-summary-${tripId}-${id}`,summary=localStorage.getItem(k)||spot[4];app.replaceChildren(document.querySelector('#detailTemplate').content.cloneNode(true));detailPage.innerHTML=`<button class="back" id="back">← ZURÜCK ZUR KARTE</button><div class="place-header"><div><p class="eyebrow">STATION ${String(i+1).padStart(2,'0')} · REISEDOKU</p><h1>${spot[1]}</h1></div><div class="place-date">${spot[2].toUpperCase()}</div></div><div class="story-grid"><article class="story"><p>${summary}</p><button class="edit-link" id="edit">TEXT BEARBEITEN</button></article><div class="gallery">${spot[5].map((x,n)=>`<div class="media ${n===0?'large':''}" data-kind="${n===1?'VIDEO':'FOTO'}"><img src="${image(x)}" alt="Reiseaufnahme aus ${spot[1]}"></div>`).join('')}</div></div><nav class="pager"><button id="prev">${i?'← '+s[i-1][1]:'—'}</button><button class="map-link" id="mapLink">⌖ KARTE</button><button id="next">${i<s.length-1?s[i+1][1]+' →':'—'}</button></nav>`;back.onclick=mapLink.onclick=()=>go('#trip/'+tripId);prev.onclick=()=>i&&go(`#trip/${tripId}/place/${s[i-1][0]}`);next.onclick=()=>i<s.length-1&&go(`#trip/${tripId}/place/${s[i+1][0]}`);edit.onclick=()=>{let v=prompt(`Zusammenfassung für ${spot[1]}`,summary);if(v?.trim()){localStorage.setItem(k,v.trim());place(tripId,id)}}}
+function place(tripId,id){let t=trips().find(x=>x.id===tripId)||baseTrip,s=t.stops,i=s.findIndex(x=>x[0]===id);if(i<0)return trip(tripId);let spot=s[i],k=`atlas-summary-${tripId}-${id}`,summary=localStorage.getItem(k)||spot[4];app.replaceChildren(document.querySelector('#detailTemplate').content.cloneNode(true));detailPage.innerHTML=`<button class="back" id="back">← ZURÜCK ZUR KARTE</button><div class="place-header"><div><p class="eyebrow">STATION ${String(i+1).padStart(2,'0')} · REISEDOKU</p><h1>${spot[1]}</h1></div><div class="place-date">${spot[2].toUpperCase()}</div></div><div class="story-grid"><article class="story"><p>${summary}</p><button class="edit-link" id="edit">Text bearbeiten</button></article><div class="gallery">${spot[5].map((x,n)=>`<div class="media ${n===0?'large':''}" data-kind="${n===1?'VIDEO':'FOTO'}"><img src="${image(x)}" alt="Reiseaufnahme aus ${spot[1]}"></div>`).join('')}</div></div><nav class="pager"><button id="prev">${i?'← '+s[i-1][1]:'—'}</button><button class="map-link" id="mapLink">⌖ KARTE</button><button id="next">${i<s.length-1?s[i+1][1]+' →':'—'}</button></nav>`;back.onclick=mapLink.onclick=()=>go('#trip/'+tripId);prev.onclick=()=>i&&go(`#trip/${tripId}/place/${s[i-1][0]}`);next.onclick=()=>i<s.length-1&&go(`#trip/${tripId}/place/${s[i+1][0]}`);edit.onclick=()=>{let v=prompt(`Zusammenfassung für ${spot[1]}`,summary);if(v?.trim()){localStorage.setItem(k,v.trim());place(tripId,id)}}}
 
 const loginDialog=document.querySelector('#loginDialog'),loginForm=document.querySelector('#loginForm'),loginNote=document.querySelector('#loginNote'),registerName=document.querySelector('#registerName');
 document.addEventListener('click',event=>{if(!event.target.closest('#loginButton'))return;event.preventDefault();loginDialog.showModal()});
-document.querySelector('#showRegister').onclick=()=>{let registering=loginForm.dataset.mode!=='register';loginForm.dataset.mode=registering?'register':'login';registerName.hidden=!registering;document.querySelector('#showRegister').textContent=registering?'ZURÜCK ZUR ANMELDUNG':'KONTO ERSTELLEN';loginForm.querySelector('.primary').textContent=registering?'KONTO ERSTELLEN':'ANMELDEN';loginNote.textContent=registering?'Passwort mit mindestens 12 Zeichen wählen.':''};
+document.querySelector('#showRegister').onclick=()=>{let registering=loginForm.dataset.mode!=='register';loginForm.dataset.mode=registering?'register':'login';registerName.hidden=!registering;document.querySelector('#showRegister').textContent=registering?'Zurück zur Anmeldung':'KONTO ERSTELLEN';loginForm.querySelector('.primary').textContent=registering?'KONTO ERSTELLEN':'ANMELDEN';loginNote.textContent=registering?'Passwort mit mindestens 12 Zeichen wählen.':''};
 loginForm.addEventListener('submit',async event=>{event.preventDefault();let action=loginForm.dataset.mode==='register'?'register':'login',email=document.querySelector('#loginEmail').value,password=document.querySelector('#loginPassword').value,display_name=document.querySelector('#loginName').value;loginNote.textContent='Wird geprüft …';try{let response=await apiFetch('./api/auth.php',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,email,password,display_name})}),data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Anmeldung nicht möglich.');loginDialog.close();location.hash='#home';location.reload()}catch(error){loginNote.textContent=error.message}});
 window.atlasLoginReady=true;
 
@@ -450,7 +450,7 @@ async function serverDayView(tripClientId, day) {
       editor.value = currentSummary;
       const save = document.createElement('button');
       save.className = 'edit-link';
-      save.textContent = 'TAGESZUSAMMENFASSUNG SPEICHERN';
+      save.textContent = 'Tageszusammenfassung speichern';
       save.onclick = async () => {
         const summary = editor.value.trim();
         if (!summary) { editor.focus(); return; }
@@ -599,7 +599,7 @@ document.addEventListener('click', event => {
 }, true);
 
 async function previewCaptureDates(trip, trigger) {
-  trigger.disabled = true; trigger.textContent = 'AUFNAHMEDATEN WERDEN GEPRÜFT …';
+  trigger.disabled = true; trigger.textContent = 'Aufnahmedaten werden geprüft …';
   const request = async body => {
     const response = await apiFetch('./api/api.php?action=capture-dates', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trip: trip.id, ...body }) });
     const data = await response.json().catch(() => ({}));
@@ -655,7 +655,7 @@ async function previewCaptureDates(trip, trigger) {
     const error = document.createElement('p'); error.setAttribute('role', 'alert');
     const buttons = document.createElement('div'); buttons.className = 'capture-date-actions';
     const cancel = document.createElement('button'); cancel.className = 'secondary'; cancel.textContent = 'ABBRECHEN'; cancel.onclick = () => dialog.close();
-    const apply = document.createElement('button'); apply.className = 'primary'; apply.textContent = 'SICHERN UND KORREKTUR ÜBERNEHMEN';
+    const apply = document.createElement('button'); apply.className = 'primary'; apply.textContent = 'Sichern und Korrektur übernehmen';
     apply.onclick = async () => {
       if (acknowledge && !acknowledge.checked) { error.textContent = 'Bitte die Abweichungen zum Dateinamen prüfen und bestätigen.'; return; }
       const values = choices.map(choice => choice.select.value);
@@ -671,12 +671,12 @@ async function previewCaptureDates(trip, trigger) {
     buttons.append(cancel, apply); card.append(error, buttons); dialog.append(card);
     dialog.addEventListener('close', () => dialog.remove()); document.body.append(dialog); dialog.showModal();
   } catch (error) { alert(error.message); }
-  finally { trigger.disabled = false; trigger.textContent = 'AUFNAHMEDATEN AKTUALISIEREN'; }
+  finally { trigger.disabled = false; trigger.textContent = 'Aufnahmedaten aktualisieren'; }
 }
 function renderAdminAccounts(adminAccounts,page) {
   const accountList = adminAccounts.querySelector('.admin-account-list');
   const adminForm=document.createElement('form');adminForm.hidden=true;adminForm.className='admin-account-form';
-  adminForm.innerHTML='<label>E-Mail-Adresse des neuen Admins<input name="email" type="email" maxlength="320" autocomplete="email" required></label><button class="primary">ADMIN HINZUFÜGEN</button><p>Admins dürfen alle Reisen bearbeiten und Freigaben verwalten. Nur Hauptadmins dürfen weitere Adminrechte vergeben. Das neue Konto muss sich mit dieser E-Mail-Adresse über Microsoft anmelden; es wird keine Einladungs-Mail versendet.</p>';
+  adminForm.innerHTML='<label>E-Mail-Adresse des neuen Admins<input name="email" type="email" maxlength="320" autocomplete="email" required></label><button class="primary">Admin hinzufügen</button><p>Admins dürfen alle Reisen bearbeiten und Freigaben verwalten. Nur Hauptadmins dürfen weitere Adminrechte vergeben. Das neue Konto muss sich mit dieser E-Mail-Adresse über Microsoft anmelden; es wird keine Einladungs-Mail versendet.</p>';
   adminAccounts.append(adminForm);const adminNote=document.createElement('p');adminNote.setAttribute('role','status');adminAccounts.append(adminNote);let adminCsrf='',adminBusy=false;
   const changeAdmin=async(method,email)=>{
     if(adminBusy)return;adminBusy=true;adminAccounts.querySelectorAll('button').forEach(b=>b.disabled=true);
@@ -694,7 +694,7 @@ function renderAdminAccounts(adminAccounts,page) {
 }
 
 function appendTripOpenActions(host, tripId) {
-  for (const [label, suffix] of [['KARTE ÖFFNEN', ''], ['REISEÜBERSICHT ÖFFNEN', '/days']]) {
+  for (const [label, suffix] of [['Karte öffnen', ''], ['Reiseübersicht öffnen', '/days']]) {
     const link = document.createElement('a'); link.className = 'trip-open'; link.textContent = label;
     link.href = '#trip/' + encodeURIComponent(tripId) + suffix; host.append(link);
   }
@@ -704,7 +704,7 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
   if (!(directAdmin ? (access.isAdmin || (!access.isGuest && Number(trip.is_owner) === 1)) : canEditTrip(trip.id))) return;
       const management = document.createElement('details'); management.className = 'trip-management';
       if(String(window.ReiseWebUI?.manageTripId||'')===String(trip.id)){management.open=true;window.ReiseWebUI.manageTripId=null;setTimeout(()=>{if(card.isConnected)card.scrollIntoView({block:'start',behavior:'smooth'});},0);}
-      const manageLabel = document.createElement('summary'); manageLabel.textContent = 'REISE VERWALTEN'; management.append(manageLabel);
+      const manageLabel = document.createElement('summary'); manageLabel.textContent = 'Reise verwalten'; management.append(manageLabel);
       const managementSection = label => {
         const section = document.createElement('details'); section.className = 'trip-management-section';
         const summary = document.createElement('summary'); summary.textContent = label;
@@ -721,7 +721,7 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
       card.append(management); management.open = true;
       const titleLabel = document.createElement('label'); titleLabel.className = 'trip-participants-label'; titleLabel.textContent = 'TITEL DER REISE';
       const title = document.createElement('input'); title.type = 'text'; title.className = 'trip-main-location-input'; title.maxLength = 255; title.value = trip.title || '';
-      const saveTitle = document.createElement('button'); saveTitle.className = 'edit-link'; saveTitle.textContent = 'TITEL SPEICHERN';
+      const saveTitle = document.createElement('button'); saveTitle.className = 'edit-link'; saveTitle.textContent = 'Titel speichern';
       saveTitle.onclick = async () => {
         const value = title.value.trim(); if (!value) { title.focus(); return; }
         saveTitle.disabled = true;
@@ -735,7 +735,7 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
       };
       const introLabel = document.createElement('label'); introLabel.className = 'trip-participants-label'; introLabel.textContent = 'EINSTIEGSTEXT DER REISE';
       const intro = document.createElement('textarea'); intro.className = 'trip-participants-input'; intro.rows = 4; intro.maxLength = 5000; intro.placeholder = 'Einstiegstext für diese Reise'; intro.value = trip.intro || '';
-      const saveIntro = document.createElement('button'); saveIntro.className = 'edit-link'; saveIntro.textContent = 'EINSTIEGSTEXT SPEICHERN';
+      const saveIntro = document.createElement('button'); saveIntro.className = 'edit-link'; saveIntro.textContent = 'Einstiegstext speichern';
       saveIntro.onclick = async () => {
         const value = intro.value.trim(); if (!value) { intro.focus(); return; }
         saveIntro.disabled = true;
@@ -751,7 +751,7 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
       basics.body.append(titleLabel, title, saveTitle, introLabel, intro, saveIntro);
       const participantsLabel = document.createElement('label'); participantsLabel.className = 'trip-participants-label'; participantsLabel.textContent = 'TEILNEHMER DER REISE';
       const participants = document.createElement('textarea'); participants.className = 'trip-participants-input'; participants.rows = 3; participants.placeholder = 'Zum Beispiel: Alex, Kim und Familie'; participants.value = trip.participants || '';
-      const saveParticipants = document.createElement('button'); saveParticipants.className = 'edit-link'; saveParticipants.textContent = 'TEILNEHMER SPEICHERN';
+      const saveParticipants = document.createElement('button'); saveParticipants.className = 'edit-link'; saveParticipants.textContent = 'Teilnehmer speichern';
       saveParticipants.onclick = async () => {
         saveParticipants.disabled = true;
         try {
@@ -762,9 +762,9 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
         finally { saveParticipants.disabled = false; }
       };
       basics.body.append(participantsLabel, participants, saveParticipants);
-      const inviteLabel = document.createElement('label'); inviteLabel.className = 'trip-participants-label'; inviteLabel.textContent = 'GAST EINLADEN';
+      const inviteLabel = document.createElement('label'); inviteLabel.className = 'trip-participants-label'; inviteLabel.textContent = 'Gast einladen';
       const inviteEmail = document.createElement('input'); inviteEmail.type = 'email'; inviteEmail.className = 'trip-main-location-input'; inviteEmail.placeholder = 'gast@example.com'; inviteEmail.autocomplete = 'email';
-      const sendInvite = document.createElement('button'); sendInvite.className = 'edit-link'; sendInvite.textContent = 'EINLADUNG PER E-MAIL SENDEN';
+      const sendInvite = document.createElement('button'); sendInvite.className = 'edit-link'; sendInvite.textContent = 'Einladung per E-Mail senden';
       const guestList = document.createElement('div'); guestList.className = 'all-trips-guest-list';
       let guestRequestVersion = 0;
       const loadTripGuests = async () => {
@@ -822,13 +822,13 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
       if (!Number(trip.has_gps)) {
         const locationLabel = document.createElement('label'); locationLabel.className = 'trip-participants-label'; locationLabel.textContent = 'HAUPTORT DER REISE';
         const location = document.createElement('input'); location.type = 'text'; location.className = 'trip-main-location-input'; location.maxLength = 255; location.placeholder = 'Zum Beispiel: Barcelona, Spanien'; location.value = trip.main_location || '';
-        const locateLocation = document.createElement('button'); locateLocation.className = 'edit-link trip-geocode-button'; locateLocation.textContent = 'ORT SUCHEN & AUF WELTKARTE ZEIGEN';
+        const locateLocation = document.createElement('button'); locateLocation.className = 'edit-link trip-geocode-button'; locateLocation.textContent = 'Ort suchen & auf Weltkarte zeigen';
         const locationHint = document.createElement('small'); locationHint.className = 'trip-location-hint';
         const attribution = document.createElement('a'); attribution.href = 'https://www.openstreetmap.org/copyright'; attribution.target = '_blank'; attribution.rel = 'noopener'; attribution.textContent = 'OpenStreetMap';
         locationHint.append(trip.main_latitude !== null && trip.main_latitude !== undefined ? 'Kartenpunkt gespeichert · ' : 'Ortssuche: ', attribution);
         locateLocation.onclick = async () => {
           if (!location.value.trim()) { location.focus(); return; }
-          locateLocation.disabled = true; locateLocation.textContent = 'ORT WIRD GESUCHT …';
+          locateLocation.disabled = true; locateLocation.textContent = 'Ort wird gesucht …';
           try {
             const response = await apiFetch('./api/api.php?action=trip-main-location-geocode', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: trip.id, main_location: location.value }) });
             const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'Ort nicht gefunden.');
@@ -838,13 +838,13 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
             sessionStorage.setItem('atlas-focus-trip', String(trip.id));
             window.location.assign(`${window.location.pathname}?show-map=${encodeURIComponent(String(trip.id))}#home`);
           } catch (error) { alert(error.message || 'Der Ort konnte nicht gefunden werden.'); }
-          finally { locateLocation.disabled = false; locateLocation.textContent = 'ORT SUCHEN & AUF WELTKARTE ZEIGEN'; }
+          finally { locateLocation.disabled = false; locateLocation.textContent = 'Ort suchen & auf Weltkarte zeigen'; }
         };
         const locationSection = managementSection('Hauptort & Karte');
         management.insertBefore(locationSection.section, media.section);
         locationSection.body.append(locationLabel, location, locateLocation, locationHint);
       }
-      const sync = document.createElement('button'); sync.className = 'edit-link'; sync.textContent = 'ONEDRIVE-BILDER ABGLEICHEN';
+      const sync = document.createElement('button'); sync.className = 'edit-link'; sync.textContent = 'OneDrive-Bilder abgleichen';
       sync.disabled = trip.source_provider !== 'onedrive';
       sync.title = 'Mit dem verbundenen OneDrive-Konto abgleichen';
       sync.onclick = async () => {
@@ -866,7 +866,7 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
           alert(`${result.added_media || 0} neue Medien und ${result.added_stations || 0} neue Stationen ergänzt. ${result.removed_media} gelöschte Medien, ${result.removed_stations} leere Stationen und ${result.removed_cached_thumbnails} zwischengespeicherte Minibilder entfernt. ${result.remaining_media} Medien sind jetzt in der Reise.`);
           render();
         } catch (error) { alert(error.message || 'Der OneDrive-Abgleich ist fehlgeschlagen.'); }
-        finally { sync.disabled = false; sync.textContent = 'ONEDRIVE-BILDER ABGLEICHEN'; }
+        finally { sync.disabled = false; sync.textContent = 'OneDrive-Bilder abgleichen'; }
       };
       const datedAction = (button, timestamp) => {
         const group = document.createElement('span'); group.className = 'dated-trip-action';
@@ -878,7 +878,7 @@ function mountWebTripAdministration(card, trip, directAdmin = false) {
         group.append(button, note); mediaActions.append(group);
       };
       if (trip.source_provider === 'onedrive') datedAction(sync, trip.media_synced_at);
-      const captureDates = document.createElement('button'); captureDates.className = 'edit-link'; captureDates.textContent = 'AUFNAHMEDATEN AKTUALISIEREN';
+      const captureDates = document.createElement('button'); captureDates.className = 'edit-link'; captureDates.textContent = 'Aufnahmedaten aktualisieren';
       captureDates.disabled = trip.source_provider !== 'onedrive';
       captureDates.onclick = () => previewCaptureDates(trip, captureDates);
       if (trip.source_provider === 'onedrive') datedAction(captureDates, trip.capture_dates_updated_at);
@@ -917,7 +917,8 @@ function groupWebSettings(page) {
   const key = 'atlas-settings-open';
   const pick = selector => [...page.querySelectorAll(':scope > ' + selector)];
   const areas = [
-    ['account', 'Anmeldung & Konto', [...pick('.settings-account'), ...pick('.admin-accounts'), ...pick('.all-trips-guest-access')]],
+    ['account', 'Anmeldung & Konto', pick('.settings-account')],
+    ['users', 'Nutzer & Berechtigungen', [...pick('.admin-accounts'), ...pick('.all-trips-guest-access')]],
     ['automation', 'Reise-Automatik', pick('.native-automation-link')],
     ['options', 'Optionen', [...pick('.native-theme-card'), ...pick('.native-language'), ...pick('.native-install-card')]]
   ];
@@ -936,6 +937,7 @@ function groupWebSettings(page) {
   const set = (area, value) => { const node = page.querySelector(`.settings-area[data-area="${area}"] .settings-area-status`); if (node) node.textContent = value; };
   const update = () => {
     set('account', [access.user?.display_name || access.user?.email, access.isAdmin ? 'Admin' : access.isGuest ? 'Gast' : ''].filter(Boolean).join(' · '));
+    set('users', 'Mitglieder, Admins, Gastzugänge');
     set('automation', 'Neue Fotos automatisch zu Reisen');
     const install = page.querySelector('.native-install-card')?.dataset.state;
     set('options', [page.querySelector('.native-theme-card select')?.selectedOptions[0]?.textContent, page.querySelector('.native-language select')?.selectedOptions[0]?.textContent, install === 'installed' ? 'als App installiert' : install === 'ready' ? 'als App installierbar' : ''].filter(Boolean).join(' · '));
@@ -961,7 +963,7 @@ function administration() {
     if (access.canConfigureAutomation) { const card = document.createElement('section'); card.className = 'import-card native-automation-link'; card.innerHTML = '<h2>Reise-Automatik</h2><p>Legt fest, wann der Server aus neuen Fotos in OneDrive automatisch Reisen erstellt: Entfernung von zu Hause, ruhige Tage, kleine Fotos.</p><a class="primary" href="./api/travel-automation-setup.php">Reise-Automatik einstellen</a>'; page.querySelector('#adminTripGrid').before(card); } }
   const allTripsGuestAccess = document.createElement('section');
   allTripsGuestAccess.className = 'all-trips-guest-access';
-  allTripsGuestAccess.innerHTML = '<div><p class="eyebrow">ARCHIV-ZUGRIFF</p><h2>Zugriff auf <em>alle Reisen.</em></h2><p>Diese Gäste sehen auch alle künftig importierten Reisen.</p></div><form id="allTripsGuestForm"><label for="allTripsGuestEmail">E-Mail-Adresse</label><div><input id="allTripsGuestEmail" type="email" autocomplete="email" placeholder="gast@example.com" required><button class="primary">HINZUFÜGEN</button></div></form><div class="all-trips-guest-list" id="allTripsGuestList" aria-live="polite"></div>';
+  allTripsGuestAccess.innerHTML = '<div><p class="eyebrow">ARCHIV-ZUGRIFF</p><h2>Zugriff auf <em>alle Reisen.</em></h2><p>Diese Gäste sehen auch alle künftig importierten Reisen.</p></div><form id="allTripsGuestForm"><label for="allTripsGuestEmail">E-Mail-Adresse</label><div><input id="allTripsGuestEmail" type="email" autocomplete="email" placeholder="gast@example.com" required><button class="primary">Hinzufügen</button></div></form><div class="all-trips-guest-list" id="allTripsGuestList" aria-live="polite"></div>';
   page.querySelector('#adminTripGrid').before(allTripsGuestAccess);
   const adminAccounts = document.createElement('section'); adminAccounts.className = 'admin-accounts';
   adminAccounts.innerHTML = '<div><p class="eyebrow">VERWALTUNG</p><h2>Accounts mit Adminrechten</h2></div><div class="admin-account-list" aria-live="polite">Admin-Accounts werden geladen …</div>';
@@ -985,7 +987,7 @@ function administration() {
   if (access.isAdmin) renderAllTripsGuests();
   const importButton = document.createElement('button');
   importButton.className = 'primary admin-import-button';
-  importButton.textContent = 'NEUE REISE IMPORTIEREN';
+  importButton.textContent = 'Neue Reise importieren';
   importButton.disabled = false;
   importButton.title = 'OneDrive, lokale Dateien oder Dropbox auswählen';
   importButton.onclick = () => go('#import');
@@ -1016,7 +1018,7 @@ function administration() {
       }
       const actions = card.querySelector('.admin-trip-actions');
       appendTripOpenActions(actions, trip.id);
-      const remove = document.createElement('button'); remove.className = 'delete-trip'; remove.textContent = 'REISE LÖSCHEN';
+      const remove = document.createElement('button'); remove.className = 'delete-trip'; remove.textContent = 'Reise löschen';
       remove.onclick = () => eraseTrip(trip.id); card.querySelector('.trip-card-copy').append(remove);
       grid.append(card);
     });
@@ -1182,7 +1184,7 @@ async function openServerTrip(tripId, stationId = '') {
 function editMediaTime(tripId, stopId, item) {
   const dialog = document.createElement('dialog'), form = document.createElement('form');
   form.className = 'dialog-card media-time-editor';
-  form.innerHTML = '<button type="button" class="close" aria-label="Schließen">×</button><p class="eyebrow">MANUELLE KORREKTUR</p><h2>Aufnahmezeit ändern</h2><p class="media-time-name"></p><label>Aufnahmedatum und Uhrzeit<input type="datetime-local" step="1" required></label><p>Bei geändertem Datum wird die Aufnahme dem passenden Reisetag zugeordnet. Die manuelle Zeit bleibt bei automatischen Aktualisierungen erhalten.</p><p class="media-time-error" role="alert"></p><button type="submit" class="primary">SPEICHERN</button>';
+  form.innerHTML = '<button type="button" class="close" aria-label="Schließen">×</button><p class="eyebrow">MANUELLE KORREKTUR</p><h2>Aufnahmezeit ändern</h2><p class="media-time-name"></p><label>Aufnahmedatum und Uhrzeit<input type="datetime-local" step="1" required></label><p>Bei geändertem Datum wird die Aufnahme dem passenden Reisetag zugeordnet. Die manuelle Zeit bleibt bei automatischen Aktualisierungen erhalten.</p><p class="media-time-error" role="alert"></p><button type="submit" class="primary">Speichern</button>';
   form.querySelector('.media-time-name').textContent = item.name || 'Aufnahme';
   const input = form.querySelector('input'); input.value = item.taken_at?.replace(' ', 'T') || '';
   form.querySelector('.close').onclick = () => dialog.close();
@@ -1682,7 +1684,7 @@ async function openStationLocationPicker(tripId, stop, stops = [], onSaved = () 
   if (!page.isConnected || !state?.map || state.key !== `${tripId}/${day}`) return;
   const map = state.map, apple = !!state.node.appleMap, L = apple ? null : await loadLeaflet();
   const editor = document.createElement('section'); editor.className = 'station-location-editor';
-  editor.innerHTML = '<p>Die gewünschte Stationsposition auf der Tageskarte anklicken. Erst „POSITION SPEICHERN“ übernimmt die Änderung.</p><p class="station-location-status" role="status"></p><div style="display:flex;gap:12px;flex-wrap:wrap"><button type="button" class="primary location-save" disabled>POSITION SPEICHERN</button><button type="button" class="location-cancel">ABBRECHEN</button></div>';
+  editor.innerHTML = '<p>Die gewünschte Stationsposition auf der Tageskarte anklicken. Erst „POSITION SPEICHERN“ übernimmt die Änderung.</p><p class="station-location-status" role="status"></p><div style="display:flex;gap:12px;flex-wrap:wrap"><button type="button" class="primary location-save" disabled>Position speichern</button><button type="button" class="location-cancel">Abbrechen</button></div>';
   const status = editor.querySelector('.station-location-status'), save = editor.querySelector('.location-save'), cancel = editor.querySelector('.location-cancel');
   let marker, selected, saving = false;
   const select = latlng => {
@@ -2108,7 +2110,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
         playing = false; updatePlayback();
         const fallback = document.createElement('div'); fallback.className = 'media-lightbox-fallback';
         fallback.textContent = 'Das Foto konnte derzeit nicht geladen werden.';
-        if (data.webUrl) { const link = document.createElement('a'); link.href = data.webUrl; link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'IN ONEDRIVE ÖFFNEN'; fallback.append(link); }
+        if (data.webUrl) { const link = document.createElement('a'); link.href = data.webUrl; link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'In OneDrive öffnen'; fallback.append(link); }
         figure.replaceWith(fallback);
       };
       viewport.append(image);
@@ -2408,8 +2410,8 @@ function renderHelp() {
       <section class="help-card"><span>03 / DEIN ZUGRIFF</span><h2>Freigegebene Reisen</h2><p>Du siehst nur die Reisen, die für deine E-Mail-Adresse freigegeben wurden. Ein Einladungslink gilt einmalig. Für einen späteren Besuch kannst du über die Gastzugangsseite einen neuen Link anfordern. Wer Archivzugriff über Microsoft hat, sieht alle Reisen.</p></section>
       <section class="help-card"><span>04 / NUR ANSICHT</span><h2>Inhalte ansehen</h2><p>Als Betrachter kannst du Karten, Stationen und Medien öffnen. Änderungen an Reisen und Freigaben sind Admins vorbehalten. Wenn dir eine erwartete Reise fehlt, wende dich an deine Kontaktperson für diese Seite.</p></section>`;
   page.innerHTML = `
-    <button class="back help-back" type="button">← ZURÜCK ZUR WELTKARTE</button>
-    ${access.isAdmin ? `<div class="help-view-switch" role="group" aria-label="Hilfeansicht"><button type="button" data-help-view="admin" aria-pressed="${!viewerView}">ADMIN-ANSICHT</button><button type="button" data-help-view="viewer" aria-pressed="${viewerView}">BETRACHTER-ANSICHT</button></div>` : ''}
+    <button class="back help-back" type="button">← Zurück zur Weltkarte</button>
+    ${access.isAdmin ? `<div class="help-view-switch" role="group" aria-label="Hilfeansicht"><button type="button" data-help-view="admin" aria-pressed="${!viewerView}">Admin-Ansicht</button><button type="button" data-help-view="viewer" aria-pressed="${viewerView}">Betrachter-Ansicht</button></div>` : ''}
     <header class="help-heading"><p class="eyebrow">ANLEITUNG · ${role.toUpperCase()}</p><h1>Hilfe für <em>${role}.</em></h1><p>So nutzt du das Reisearchiv mit deinen Zugriffsrechten.</p></header>
     <div class="help-grid">
       ${solutionHelpCards()}
@@ -2418,9 +2420,10 @@ function renderHelp() {
       ${viewerView ? viewerCards : `
       <section class="help-card"><span>03 / VERWALTUNG</span><h2>Reisen bearbeiten</h2><p>Unter „Alle Reisen“ aktivierst du als Admin mit „Reisen verwalten“ den Verwaltungsmodus für alle Reisen. „Verwaltung schließen“ beendet ihn; nach dem Neuladen ist er ausgeschaltet. Unter „Alle Reisen“ wählst du „Karte öffnen“ oder „Reiseübersicht öffnen“. Im Verwaltungsmodus bleibt dort pro Reise nur „Reise löschen“. In der Reiseübersicht bearbeitest du Titel, Beschreibung und Teilnehmer, verwaltest Gäste und Einladungen und startest den Foto- und Videoabgleich. Dort kannst du auch bei Reisen ohne GPS einen Hauptort setzen. Verwaltungsbereiche sind nur für Admins sichtbar. In den Reiseansichten kannst du Stationsnamen, Texte und Positionen korrigieren. Undatierte Stationen findest du auf der Reisekarte. Aktiviere „Reisen verwalten“ und wähle unter Station verwalten ein Reisedatum. Originaldateien und Aufnahmezeiten bleiben unverändert.</p></section>
       <section class="help-card"><span>04 / FREIGABEN</span><h2>Zugriff vergeben und entziehen</h2><p>Im Bereich „Zugriff auf alle Reisen“ verwaltest du dauerhafte Archivfreigaben. Für eine einzelne Reise trägst du die E-Mail-Adresse bei „Gast einladen“ ein. Der Gast erhält einen Einmallink. Mit × neben der Adresse entziehst du die Reisefreigabe; eine zusätzliche Archivfreigabe entfernst du separat.</p></section>
-      <section class="help-card"><span>05 / MICROSOFT</span><h2>Import und Einladungen</h2><p>Für den OneDrive-Import und den Versand von Einladungen musst du mit dem Microsoft-Administratorkonto angemeldet sein. Gäste benötigen kein Microsoft-Konto.</p></section>`}
+      <section class="help-card"><span>05 / MICROSOFT</span><h2>Import und Einladungen</h2><p>Für den OneDrive-Import und den Versand von Einladungen musst du mit dem Microsoft-Administratorkonto angemeldet sein. Gäste benötigen kein Microsoft-Konto.</p></section>
+      <section class="help-card"><span>06 / IPHONE-APP</span><h2>Reise aufzeichnen</h2><p>Starte vor einer Reise oben auf der Weltkarte „Reise starten“ und beende sie danach mit „Beenden“. Das iPhone merkt sich dazwischen etwa alle 50 Meter den Standort; die Daten bleiben auf dem iPhone und werden nach 6 Monaten gelöscht. Aus jeder Aufzeichnung entsteht genau eine Reise mit den gefahrenen und gegangenen Strecken – auf einem von drei Wegen, den die App selbst wählt: Mit eigenem Server und Reise-Automatik sammelt der Server alle Fotos dieser Zeit aus OneDrive in „Reise ab …“, auch wenn die App geschlossen ist. Mit OneDrive ohne eigene Automatik schlägt dir die App nach dem Beenden oder beim nächsten Öffnen eine Reise aus deinem OneDrive-Kameraordner vor. Ohne OneDrive kommt derselbe Vorschlag aus deiner Fotos-Mediathek. Ein Tipp genügt; die Strecken werden gleich eingetragen. Die Einrichtung der Reise-Automatik am eigenen Server beschreibt docs/FOTOAUTOMATIK.md im Server-Repository.</p></section>`}
     </div>
-    <button class="primary help-archive" type="button">ALLE REISEN ÖFFNEN</button>
+    <button class="primary help-archive" type="button">Alle Reisen öffnen</button>
     <p class="eyebrow website-version"></p>`;
   page.querySelector('.website-version').textContent = 'AlleReisen · Web / Server · Version ' + (document.querySelector('meta[name="application-version"]')?.content || 'unbekannt');
   app.append(page);
@@ -2516,8 +2519,53 @@ function home(nativeReady = false) {
     const bar=document.createElement('header');bar.className='page-topbar world-topbar';
     bar.innerHTML='<svg class=\"app-mark\" viewBox=\"0 0 1024 1024\" aria-hidden=\"true\"><defs><linearGradient id=\"appMarkBg\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#5b4636\"/><stop offset=\"1\" stop-color=\"#b8573f\"/></linearGradient><clipPath id=\"appMarkClip\"><rect width=\"1024\" height=\"1024\" rx=\"230\"/></clipPath></defs><g clip-path=\"url(#appMarkClip)\"><rect width=\"1024\" height=\"1024\" fill=\"url(#appMarkBg)\"/><path d=\"M0 640C110 610 170 700 250 660S330 560 300 480 160 380 0 420z\" fill=\"#26473e\"/><path d=\"M0 1024V800C120 760 200 840 330 820S470 900 440 1024z\" fill=\"#26473e\"/><path d=\"M1024 0H640c30 60 120 70 170 40s150 0 214 60z\" fill=\"#26473e\"/><path d=\"M380 0c20 150-60 250 0 400s-40 300 30 624M0 260c200-40 380 40 560 10s330-90 464-40M520 1024c40-160 200-220 504-260\" fill=\"none\" stroke=\"#e7b98a\" stroke-width=\"14\" stroke-opacity=\".55\"/><g fill=\"#f6efe2\" transform=\"translate(-9 0)\"><path d=\"M288 820L490 296h36L334 820z\"/><path d=\"M496 296h56l232 524h-96z\"/><path d=\"M384 614h252l14 38H370z\"/><rect x=\"240\" y=\"808\" width=\"146\" height=\"34\" rx=\"5\"/><rect x=\"640\" y=\"808\" width=\"186\" height=\"34\" rx=\"5\"/></g><path d=\"M512 286c-28-36-70-70-70-116a70 70 0 0 1 140 0c0 46-42 80-70 116z\" fill=\"#ffd98a\"/><circle cx=\"512\" cy=\"170\" r=\"26\" fill=\"#26473e\"/></g></svg><div class="page-topbar-text"><span class="page-topbar-title">AlleReisen</span><span class="page-topbar-sub" role="status"></span></div>';
     page.append(bar); // "Einstellungen" is in the bottom menu of the app.
+    mountWorldRecordingButton(bar);
   }else {/* website: "Einstellungen" is in the bottom menu */}
   app.append(page); renderWorldMap();
+}
+// iPhone app: "Reise starten" / "Reise beenden" in the world map header starts or ends the trip recording
+// (the same steps as Einstellungen › Reise aufzeichnen). While recording the button is red with its start time.
+function mountWorldRecordingButton(bar) {
+  if (!window.ReiseRecording || !document.body.classList.contains('native-ios')) return;
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'world-recording-button'; button.hidden = true;
+  bar.append(button);
+  const time = at => new Date(at * 1000).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+  const show = info => {
+    const on = !!info?.recording; button.hidden = false; button.dataset.recording = String(on);
+    button.innerHTML = on ? '<span class="world-recording-dot" aria-hidden="true"></span><span></span>' : '<span></span>';
+    button.lastElementChild.textContent = on ? 'seit ' + time(info.since) + ' · Beenden' : 'Reise starten';
+    button.setAttribute('aria-label', on ? 'Reise beenden, Aufzeichnung läuft seit ' + time(info.since) : 'Reise starten und Aufzeichnung beginnen');
+  };
+  // Messages after starting/ending appear in a glass island below the header (closed with ×), not in the header.
+  const note = text => {
+    if (!text) return;
+    let island = document.querySelector('.world-recording-notice');
+    if (!island) {
+      island = document.createElement('div'); island.className = 'world-recording-notice'; island.setAttribute('role', 'status');
+      island.innerHTML = '<p></p><button type="button" class="world-recording-notice-close" aria-label="Hinweis schließen">×</button>';
+      island.querySelector('button').onclick = () => island.remove();
+      bar.after(island);
+    }
+    island.querySelector('p').textContent = text;
+  };
+  const refresh = () => ReiseRecording.status().then(show).catch(() => {});
+  window.addEventListener('ReiseRecordingChanged', event => { if (button.isConnected) show(event.detail); });
+  button.onclick = async () => {
+    if (button.disabled) return; button.disabled = true;
+    try {
+      const current = await ReiseRecording.status();
+      if (current.recording && !await window.ReiseConfirm('Reise beenden? Die Aufzeichnung stoppt und die Strecken werden in deine Reisen übernommen.')) return;
+      if (current.recording) note('Strecken werden übernommen …');
+      const result = current.recording ? await ReiseRecording.stop() : await ReiseRecording.start();
+      if (result) note(result.message);
+      // Without the own server's automation the app offers the trip from OneDrive or the photo library right away.
+      if (current.recording) { document.querySelector('.world-recording-notice')?.remove(); ReiseRecording.offer?.({ go, force: true }); }
+    } catch (error) { note(error.message); }
+    finally { button.disabled = false; refresh(); }
+  };
+  refresh();
+  // Finished recordings without a trip yet: offered when the world map opens (at most every ten minutes).
+  ReiseRecording.offer?.({ go });
 }
 function renderArchiveConnectionStatus(page, rows, open) {
   const card=document.createElement('section');card.className='archive-connection-status';card.setAttribute('aria-label','Anmeldung und Verbindungen');
@@ -2575,7 +2623,7 @@ function renderAccountDeletion(page) {
     if(info.blocked){text('p',info.blocked,'native-form-status');return;}
     const label=document.createElement('label');label.textContent='Zur Bestätigung deine E-Mail-Adresse eingeben';
     const input=document.createElement('input');input.type='email';input.autocomplete='off';input.spellcheck=false;label.append(input);body.append(label);
-    const button=document.createElement('button');button.type='button';button.className='primary danger';button.textContent='KONTO ENDGÜLTIG LÖSCHEN';button.disabled=true;body.append(button);
+    const button=document.createElement('button');button.type='button';button.className='primary danger';button.textContent='Konto endgültig löschen';button.disabled=true;body.append(button);
     const result=text('p','','native-form-status');result.setAttribute('role','status');
     input.addEventListener('input',()=>{button.disabled=input.value.trim().toLowerCase()!==String(info.email).toLowerCase();});
     button.addEventListener('click',async()=>{
@@ -2656,7 +2704,8 @@ async function mountTripDayAdministration(page, tripRecord) {
   const overviewLabel=document.createElement('p');overviewLabel.className='eyebrow';overviewLabel.textContent='REISEÜBERSICHT';
   copy.className+=' page-topbar-text';copy.append(overviewLabel,title,description,participants);host.append(copy);page.prepend(host);
   if (!mayEditTrip(tripRecord.id) || tripRecord.read_only || window.ReiseNativeUI?.isReadOnlyTrip?.(tripRecord.id)) return;
-  // Trip-level editing lives in the "Reise bearbeiten" sheet (top-right button).
+  // In edit mode the whole trip (title, texts, participants, sharing, delete) is edited right here.
+  await mountTripEditorInline(host, tripRecord);
 }
 // Edit mode per trip: station tools, route editing and photo changes appear on the trip pages
 // only while it is switched on in the "Reise bearbeiten" sheet (importers and admins).
@@ -2766,46 +2815,37 @@ function mountTripEditButton(tripId) {
   document.body.append(button);
   document.body.style.setProperty('--trip-edit-width', button.offsetWidth + 'px');
 }
+// "Bearbeiten" switches the edit mode of this trip on or off directly (no extra sheet). The settings of the
+// whole trip then appear in the trip overview header (mountTripEditorInline).
 async function openTripEditor(tripId) {
-  if (document.querySelector('.trip-editor-sheet')) return;
-  const record = await tripRecordFor(tripId);
-  const dialog = document.createElement('dialog'); dialog.className = 'trip-editor-sheet'; dialog.setAttribute('aria-labelledby', 'tripEditorTitle');
-  const head = document.createElement('div'); head.className = 'trip-editor-head';
-  const heading = document.createElement('h2'); heading.id = 'tripEditorTitle'; heading.textContent = 'Reise bearbeiten';
-  const close = document.createElement('button'); close.type = 'button'; close.className = 'edit-link'; close.textContent = 'Schließen'; close.onclick = () => dialog.close();
-  head.append(heading, close);
-  const subtitle = document.createElement('p'); subtitle.className = 'trip-editor-subtitle'; subtitle.textContent = record.title || '';
-  // Edit mode switch: shows the editing controls directly on day, station and map pages.
-  const mode = document.createElement('section'); mode.className = 'trip-editor-mode';
-  const modeLabel = document.createElement('label'); const toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.checked = tripEditing(tripId);
-  modeLabel.append(toggle, document.createTextNode(' Bearbeitungsmodus auf den Reiseseiten'));
-  const modeHint = document.createElement('p'); modeHint.className = 'hint';
-  modeHint.textContent = 'Blendet auf Tages-, Stations- und Kartenseiten die Werkzeuge ein: Stationen umbenennen, zusammenführen und verschieben, Strecken zwischen Stationen ändern, Aufnahmezeit und Station einzelner Fotos ändern. Ausgeschaltet sieht die Reise aus wie für alle anderen.';
-  toggle.onchange = () => { setTripEditing(tripId, toggle.checked); dialog.close(); render(); };
-  mode.append(modeLabel, modeHint);
+  setTripEditing(tripId, !tripEditing(tripId));
+  mountTripEditButton(tripId);
+  render();
+}
+async function mountTripEditorInline(host, tripRecord) {
+  const tripId = String(tripRecord.id);
+  if (!tripEditing(tripId) || !host.isConnected) return;
+  const panel = document.createElement('section'); panel.className = 'trip-editor-inline';
+  const heading = document.createElement('p'); heading.className = 'eyebrow'; heading.textContent = 'GANZE REISE BEARBEITEN';
+  const hint = document.createElement('p'); hint.className = 'hint';
+  hint.textContent = 'Der Bearbeitungsmodus ist an: Auf Tages-, Stations- und Kartenseiten kannst du Stationen, Strecken und Fotos direkt ändern. Erneut auf „Bearbeiten“ tippen beendet ihn.';
   const tools = document.createElement('div'); tools.className = 'trip-editor-tools';
-  dialog.append(head, subtitle, mode, tools);
-  document.body.append(dialog);
-  dialog.addEventListener('close', () => { dialog.remove(); mountTripEditButton(tripId); });
-  dialog.showModal();
-  if (window.ReiseNativeUI) {
-    await ReiseNativeUI.tripAdministration({ host: tools, tripId, go, directAdmin: true });
-    if (window.ReiseNativeUI.openHealthSteps && window.ReiseNative) {
-      try { const state = await ReiseNative.request('state'); if (String(state.platform || '').toLowerCase() === 'ios') {
-        const steps = document.createElement('button'); steps.type = 'button'; steps.className = 'edit-link'; steps.textContent = 'Schrittanzahl abfragen';
-        steps.onclick = () => ReiseNativeUI.openHealthSteps({ tripId }).catch(error => alert(error.message)); tools.prepend(steps);
-      } } catch {}
-    }
-  } else mountWebTripAdministration(tools, record, true);
-  tools.querySelectorAll('details.trip-management').forEach(details => { details.open = true; details.querySelector(':scope > summary')?.remove(); });
+  panel.append(heading, hint, tools);
+  host.after(panel);
+  if (window.ReiseNativeUI) await ReiseNativeUI.tripAdministration({ host: tools, tripId, go, directAdmin: true });
+  else mountWebTripAdministration(tools, await tripRecordFor(tripId), true);
+  if (!panel.isConnected) return;
+  // The outer block is always open (its heading hidden, not removed: without a summary browsers show "Details");
+  // the topics inside stay closed until tapped, so the trip page stays readable.
+  tools.querySelectorAll('details.trip-management').forEach(details => { details.open = true; const summary = details.querySelector(':scope > summary'); if (summary) summary.style.display = 'none'; });
   const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'edit-link trip-editor-delete'; remove.textContent = 'Reise löschen';
   remove.onclick = async () => {
-    if (window.ReiseNativeUI?.deleteTrip) { if (await ReiseNativeUI.deleteTrip(tripId)) { dialog.close(); go('#library'); } return; }
-    dialog.close(); await eraseTrip(record.id); if (!remoteTrips.some(t => String(t.id) === String(tripId))) go('#library');
+    if (window.ReiseNativeUI?.deleteTrip) { if (await ReiseNativeUI.deleteTrip(tripId)) { setTripEditing(tripId, false); go('#library'); } return; }
+    await eraseTrip(tripRecord.id); if (!remoteTrips.some(t => String(t.id) === tripId)) { setTripEditing(tripId, false); go('#library'); }
   };
   const removeNote = document.createElement('p'); removeNote.className = 'hint'; removeNote.textContent = 'Löscht die Reise mit Texten und Stationen. Die Originalfotos und Videos bleiben an ihrem Speicherort.';
   const danger = document.createElement('section'); danger.className = 'trip-editor-danger'; danger.append(remove, removeNote);
-  if (dialog.open) dialog.append(danger);
+  panel.append(danger);
 }
 async function renderTripDayOverview(tripId) {
   app.innerHTML='<section class="detail-page"><p role="status">Tagesübersicht wird geladen …</p></section>';
@@ -2983,7 +3023,7 @@ async function openAppleRouteEditor(stops,tripId,connection) {
       catch (error) { status.textContent = error.message; }
       finally { busy = false; dialog.querySelectorAll('button,input').forEach(b => b.disabled = false); }
     };
-    action('SPEICHERN', () => commit(false)); const close = action('ABBRECHEN', () => { if (!busy) dialog.close(); }); action('AUTOMATISCHE STRECKE WIEDERHERSTELLEN', () => commit(true));
+    action('SPEICHERN', () => commit(false)); const close = action('ABBRECHEN', () => { if (!busy) dialog.close(); }); action('Automatische Strecke wiederherstellen', () => commit(true));
     dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
     dialog.addEventListener('close', () => { version++; editor?.remove(); dialog.remove(); });
     document.body.append(dialog); dialog.showModal(); await choose();
@@ -3228,7 +3268,7 @@ async function serverPlace(tripId, stopId) {
   unifiedDayMap?.node.remove();
   app.replaceChildren();
   const page = document.createElement('section'); page.className = 'station-page';
-  page.innerHTML = '<button class="back">← ZURÜCK ZUR WELTKARTE</button><header class="station-page-head"><h1></h1><p class="station-day-intro"></p></header><div class="station-layout"><article><section class="station-note-section"><p class="eyebrow">NOTIZ ZUR STATION</p><p class="station-note"></p></section><p class="eyebrow">AUFNAHMEN DIESER STATION</p><div class="station-photo-grid"></div></article><aside class="station-day"><h2></h2><div></div></aside></div>';
+  page.innerHTML = '<button class="back">← Zurück zur Weltkarte</button><header class="station-page-head"><h1></h1><p class="station-day-intro"></p></header><div class="station-layout"><article><section class="station-note-section"><p class="eyebrow">NOTIZ ZUR STATION</p><p class="station-note"></p></section><p class="eyebrow">AUFNAHMEN DIESER STATION</p><div class="station-photo-grid"></div></article><aside class="station-day"><h2></h2><div></div></aside></div>';
   page.classList.add('unified-day-page');
   const dayHeader = document.createElement('header'); dayHeader.className = 'unified-day-header';
   dayHeader.innerHTML = '<h2></h2><section class="unified-day-summary"><p class="eyebrow">TAGESZUSAMMENFASSUNG</p></section>';
@@ -3274,7 +3314,7 @@ async function serverPlace(tripId, stopId) {
       if (!String(stop.name || '').startsWith('Hauptort')) {
         const nameEditor = document.createElement('div'); nameEditor.className = 'station-name-editor';
         const nameInput = document.createElement('input'); nameInput.type = 'text'; nameInput.maxLength = 255; nameInput.value = stop.name || ''; nameInput.setAttribute('aria-label', 'Stationsname');
-        const saveName = document.createElement('button'); saveName.type = 'button'; saveName.className = 'edit-link'; saveName.textContent = 'NAMEN SPEICHERN';
+        const saveName = document.createElement('button'); saveName.type = 'button'; saveName.className = 'edit-link'; saveName.textContent = 'Namen speichern';
         const saveStationName = async name => {
           if (saveName.disabled || !name) { nameInput.focus(); return false; }
           saveName.disabled = true;
@@ -3289,7 +3329,7 @@ async function serverPlace(tripId, stopId) {
           finally { saveName.disabled = false; }
         };
         saveName.onclick = () => saveStationName(nameInput.value.trim());
-        const loadSuggestions = document.createElement('button'); loadSuggestions.type = 'button'; loadSuggestions.className = 'edit-link'; loadSuggestions.textContent = 'NAMENSVORSCHLÄGE LADEN';
+        const loadSuggestions = document.createElement('button'); loadSuggestions.type = 'button'; loadSuggestions.className = 'edit-link'; loadSuggestions.textContent = 'Namensvorschläge laden';
         const suggestions = document.createElement('div'); suggestions.className = 'station-name-suggestions';
         const showSuggestions = data => {
           const enteredIsland = suggestions.querySelector('.station-island-manual input')?.value.trim() || '';
@@ -3322,7 +3362,7 @@ async function serverPlace(tripId, stopId) {
             finally { sea.disabled = false; sailing.disabled = false; }
           };
           const sea = document.createElement('button'); sea.type = 'button'; sea.className = 'station-name-suggestion'; sea.textContent = 'AUF SEE SPEICHERN'; sea.onclick = () => useIsland('Auf See');
-          const sailing = document.createElement('button'); sailing.type = 'button'; sailing.className = 'station-name-suggestion'; sailing.textContent = 'SEGELN SPEICHERN'; sailing.onclick = () => useIsland('Segeln');
+          const sailing = document.createElement('button'); sailing.type = 'button'; sailing.className = 'station-name-suggestion'; sailing.textContent = 'Segeln speichern'; sailing.onclick = () => useIsland('Segeln');
           const hint = document.createElement('small'); hint.textContent = 'Nur wählen, wenn Ort und Aktivität zur Reise passen. Diese Schaltflächen speichern den Namen direkt.';
           manual.append(label, sea, sailing, hint); suggestions.append(manual);
           if (options.length) {
@@ -3344,13 +3384,13 @@ async function serverPlace(tripId, stopId) {
       }
       const editLocation = document.createElement('button');
       editLocation.type = 'button'; editLocation.className = 'edit-link';
-      editLocation.textContent = stop.latitude === null || stop.longitude === null ? 'POSITION AUF KARTE SETZEN' : 'POSITION KORRIGIEREN';
+      editLocation.textContent = stop.latitude === null || stop.longitude === null ? 'Position auf Karte setzen' : 'Position korrigieren';
       editLocation.onclick = () => openStationLocationPicker(tripRecord.id, stop, stopsData.stops || [], () => serverPlace(tripRecord.id, stop.id));
       page.querySelector('.station-page-head').append(editLocation);
       stationNote.hidden = true;
       const textarea = document.createElement('textarea'); textarea.value = stop.summary || ''; textarea.rows = 5;
       textarea.placeholder = 'Eigene Notiz zu dieser Station …'; textarea.className = 'station-note-editor';
-      const saveNote = document.createElement('button'); saveNote.className = 'primary'; saveNote.textContent = 'NOTIZ SPEICHERN';
+      const saveNote = document.createElement('button'); saveNote.className = 'primary'; saveNote.textContent = 'Notiz speichern';
       saveNote.onclick = async () => {
         const summary = textarea.value.trim(); if (!summary) { textarea.focus(); return; }
         saveNote.disabled = true;
@@ -3383,7 +3423,7 @@ async function serverPlace(tripId, stopId) {
       const details = document.createElement('details'); details.className = 'day-summary-edit';
       details.append(Object.assign(document.createElement('summary'), { textContent: 'Tageszusammenfassung bearbeiten' }));
       const input = document.createElement('textarea'); input.value = summary; input.rows = 5; input.maxLength = 10000; input.setAttribute('aria-label', 'Tageszusammenfassung');
-      const save = document.createElement('button'); save.className = 'primary'; save.textContent = 'TAGESZUSAMMENFASSUNG SPEICHERN';
+      const save = document.createElement('button'); save.className = 'primary'; save.textContent = 'Tageszusammenfassung speichern';
       save.onclick = async () => {
         if (!input.value.trim()) { input.focus(); return; } save.disabled = true;
         try { const response = await apiFetch('./api/api.php?action=day-summary', { method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trip: tripRecord.id, day, summary: input.value.trim() }) }); if (!response.ok) throw new Error(); summaryTarget.textContent = input.value.trim(); details.open = false; }
@@ -3440,7 +3480,7 @@ async function serverPlace(tripId, stopId) {
       if (item.capture_source === 'manual') time.textContent += ' · manuell';
       card.append(time);
       if (canEditTrip()) {
-        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'edit-link media-time-edit'; edit.textContent = 'AUFNAHMEZEIT ÄNDERN';
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'edit-link media-time-edit'; edit.textContent = 'Aufnahmezeit ändern';
         edit.onclick = () => editMediaTime(tripRecord.id, stop.id, item); card.append(edit);
         const pick = document.createElement('label'); pick.className = 'media-remove-pick';
         const box = document.createElement('input'); box.type = 'checkbox'; box.value = String(item.id); box.onchange = () => updateMediaRemoveBar(page, tripRecord.id);

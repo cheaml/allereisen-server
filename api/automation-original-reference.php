@@ -39,6 +39,6 @@ function automation_register_original(PDO $db,int $owner,string $token,array $jo
     $port=new CallbackOriginalReferencePort($source,
         static function(array $item)use(&$read):string{if(($read['chain'][0]['eTag']??null)!==$item['eTag'])throw new RuntimeException('original_changed_during_verification');return $read['hash'];},
         static function(array $proof,array $item)use(&$read,$db,$owner,$trip,$job):string{$media=array_replace($job['media'],$read['metadata']);if(empty($media['takenAt'])&&!empty($job['media']['takenAt']))$media['takenAt']=$job['media']['takenAt'];
-        return automation_catalog_import($db,$owner,['id'=>$trip['id'],'title'=>$trip['title'],'source_folder'=>'reise://'.$trip['id'],'station_radius_km'=>(float)($job['stationRadiusKm']??1.0)],$proof,$media,$item,null,true);});
+        return automation_catalog_import($db,$owner,['id'=>$trip['id'],'title'=>$trip['title'],'source_folder'=>'reise://'.$trip['id'],'station_radius_km'=>(float)($job['stationRadiusKm']??1.0),'participants'=>$trip['participants']??null],$proof,$media,$item,null,true);});
     return automation_original_reference($port,$job['media']['accountId'],$job['media']['driveId'],$trip['id'],$job['media']);
 }

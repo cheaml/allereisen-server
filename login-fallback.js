@@ -5,7 +5,7 @@ document.addEventListener('click', event => {
     const form = document.querySelector('#loginForm'), enabled = form.dataset.mode !== 'register';
     form.dataset.mode = enabled ? 'register' : 'login';
     document.querySelector('#registerName').hidden = !enabled;
-    register.textContent = enabled ? 'ZURÜCK ZUR ANMELDUNG' : 'KONTO ERSTELLEN';
+    register.textContent = enabled ? 'Zurück zur Anmeldung' : 'KONTO ERSTELLEN';
     form.querySelector('.primary').textContent = enabled ? 'KONTO ERSTELLEN' : 'ANMELDEN';
     return;
   }
