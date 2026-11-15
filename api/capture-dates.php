@@ -136,6 +136,7 @@ function handle_capture_dates(PDO $db, array $config, array $input): never {
   $snapshot=capture_snapshot($db,$trip);
   if (!$snapshot['trips']) json(['error'=>'Reise nicht gefunden.'],404);
   $record=$snapshot['trips'][0];$segments=explode('/',trim((string)$record['source_folder']));
+  if (str_contains((string)$record['source_folder'],'|range:')) json(['error'=>'Diese Reise stammt aus einer Aufzeichnung und enthält nur die Aufnahmen dieser Zeit. Neue Aufnahmen gleicht die App ab; ein Ordnerabgleich würde den ganzen Kamera-Ordner einschließen.'],422);
   if (array_intersect(['','.','..'],$segments)) json(['error'=>'Ungültiger OneDrive-Ordner.'],422);
   $token=graph_access_token($db,$config,(int)$record['user_id']);
   if (!$token) json(['error'=>'Bitte erneut mit Microsoft anmelden.'],409);

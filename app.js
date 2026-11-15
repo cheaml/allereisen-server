@@ -254,74 +254,8 @@ function addCoastalLabels(map, L) {
   map.whenReady(schedule);
 }
 
-async function openStopMedia(tripId,stopId,title){let dialog=document.createElement('dialog'),card=document.createElement('section'),close=document.createElement('button'),heading=document.createElement('h2'),list=document.createElement('div');card.style.cssText='background:#f4f0e8;padding:32px;max-width:560px';close.textContent='×';close.style.cssText='float:right;border:0;background:none;font-size:28px;cursor:pointer';heading.textContent=title;list.textContent='Medien werden geladen …';close.onclick=()=>dialog.close();card.append(close,heading,list);dialog.append(card);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();try{let response=await apiFetch(`./api/api.php?action=media&trip=${encodeURIComponent(tripId)}&stop=${encodeURIComponent(stopId)}`,{credentials:'same-origin'}),data=await response.json();if(!response.ok)throw new Error();list.replaceChildren(...(data.media||[]).map(media=>{let link=document.createElement('a');link.href=media.web_url||'#';link.target='_blank';link.rel='noopener';link.textContent=`${media.media_type==='video'?'VIDEO':'FOTO'} · ${media.name}`;link.style.cssText='display:block;padding:12px 0;border-top:1px solid #d8d4ca;color:#26473e';return link}));if(!data.media?.length)list.textContent='Für diese Station sind keine Medien gespeichert.'}catch{list.textContent='Die Medien konnten nicht geladen werden.'}}
 function stopTimeLabel(stop){if(!stop.starts_at)return '';let date=new Date(stop.starts_at.replace(' ','T'));if(Number.isNaN(date.getTime()))return '';return new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE',{weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(date).replace('.', '')+(globalThis.ReiseI18n?.language==='en'?'':' Uhr')}
 function stopDay(value){return String(value||'').match(/\d{4}-\d{2}-\d{2}/)?.[0]||''}
-async function aiProposals(tripId, stops) {
-  const button = document.querySelector('#aiProposals');
-  if (button) { button.disabled = true; button.textContent = 'GEMINI ANALYSIERT …'; }
-  try {
-    const chosen = stops.filter(stop => stop.preview_id).slice(0, 8);
-    const images = await Promise.all(chosen.map(async stop => {
-      const response = await apiFetch(`./api/api.php?action=preview&trip=${encodeURIComponent(tripId)}&media=${encodeURIComponent(stop.preview_id)}`, { credentials: 'same-origin' });
-      if (!response.ok) throw new Error();
-      const blob = await response.blob();
-      const data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      return { data, mime_type: blob.type || 'image/jpeg' };
-    }));
-    const response = await apiFetch('./api/api.php?action=ai-proposals', {
-      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        trip: tripId,
-        stations: chosen.map(stop => ({ id: stop.id, name: stop.name || '', starts_at: stop.starts_at || '', latitude: stop.latitude ?? null, longitude: stop.longitude ?? null })),
-        images
-      })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Gemini konnte keine Vorschläge erstellen.');
-    const text = data.proposals || {};
-    (text.stationen || []).forEach((station, index) => {
-      if (station.text && chosen[index]?.id) localStorage.setItem(`atlas-summary-${tripId}-${chosen[index].id}`, station.text);
-    });
-    const dialog = document.createElement('dialog');
-    const card = document.createElement('section');
-    card.style.cssText = 'background:#f4f0e8;padding:32px;max-width:720px';
-    card.innerHTML = '<button style="float:right;border:0;background:none;font-size:28px">×</button><p class="eyebrow">GEMINI-TEXTVORSCHLÄGE</p><h2>Reise</h2><p></p><button class="primary" id="applyTripIntro">Einstieg übernehmen</button><h2>Stationen</h2>';
-    card.querySelector('button').onclick = () => dialog.close();
-    card.querySelector('p:last-of-type').textContent = text.reise || '';
-    const applyIntro = card.querySelector('#applyTripIntro');
-    if (!text.reise) applyIntro.remove();
-    else applyIntro.onclick = () => {
-      localStorage.setItem(`atlas-trip-intro-${tripId}`, text.reise);
-      const intro = document.querySelector('.hero-copy .lede');
-      if (intro) intro.textContent = text.reise;
-      dialog.close();
-    };
-    (text.stationen || []).forEach(station => {
-      const heading = document.createElement('h3');
-      const paragraph = document.createElement('p');
-      heading.textContent = station.ort || 'Station';
-      paragraph.textContent = station.text || '';
-      card.append(heading, paragraph);
-    });
-    dialog.append(card);
-    dialog.addEventListener('close', () => dialog.remove());
-    document.body.append(dialog);
-    dialog.showModal();
-  } catch (error) {
-    alert(error.message || 'Gemini konnte keine Textvorschläge erstellen.');
-  } finally {
-    if (button) { button.disabled = false; button.textContent = 'KI-TEXTVORSCHLÄGE'; }
-  }
-}
-async function addAiButton(tripId){if(!canEditTrip())return;let actions=document.querySelector('.hero-actions');if(!actions||document.querySelector('#aiProposals'))return;let stops=await apiFetch(`./api/api.php?action=stops&trip=${encodeURIComponent(tripId)}`,{credentials:'same-origin'}).then(r=>r.ok?r.json():null);if(!stops?.stops?.some(s=>s.preview_id))return;let button=document.createElement('button');button.id='aiProposals';button.className='primary';button.textContent='KI-TEXTVORSCHLÄGE';button.onclick=()=>aiProposals(tripId,stops.stops);actions.append(button)}
-async function editTripTexts(tripId){let response=await apiFetch(`./api/api.php?action=stops&trip=${encodeURIComponent(tripId)}`,{credentials:'same-origin'}),data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Texte konnten nicht geladen werden.');let dialog=document.createElement('dialog'),card=document.createElement('form');card.method='dialog';card.className='dialog-card';card.style.maxWidth='760px';card.innerHTML='<button class="close" value="cancel">×</button><p class="eyebrow">KI- UND STATIONSTEXTE</p><h2>Texte bearbeiten</h2><div class="text-editor-list"></div><button class="primary" value="default">Änderungen speichern</button>';let list=card.querySelector('.text-editor-list');(data.stops||[]).forEach(stop=>{let label=document.createElement('label'),area=document.createElement('textarea');label.textContent=stop.name||'Station';area.dataset.stop=stop.id;area.value=stop.summary||'';area.rows=4;area.style.cssText='display:block;width:100%;margin:7px 0 18px;padding:10px;border:1px solid #bfc3bb;background:#fbfaf6;font:14px/1.5 "DM Sans"';label.append(area);list.append(label)});card.addEventListener('submit',async event=>{event.preventDefault();let save=card.querySelector('.primary');save.disabled=true;try{await Promise.all([...list.querySelectorAll('textarea')].filter(area=>area.value.trim()).map(area=>apiFetch('./api/api.php?action=stop',{method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:area.dataset.stop,trip:tripId,summary:area.value.trim()})}).then(r=>{if(!r.ok)throw new Error()})));dialog.close()}catch{alert('Ein Text konnte nicht gespeichert werden.')}finally{save.disabled=false}});dialog.append(card);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal()}
-function addTextEditorButton(tripId){if(!canEditTrip())return;let actions=document.querySelector('.hero-actions');if(!actions||document.querySelector('#editTripTexts'))return;let button=document.createElement('button');button.id='editTripTexts';button.className='primary';button.textContent='KI-Texte bearbeiten';button.onclick=()=>editTripTexts(tripId).catch(error=>alert(error.message));actions.append(button)}
 
 function place(tripId,id){let t=trips().find(x=>x.id===tripId)||baseTrip,s=t.stops,i=s.findIndex(x=>x[0]===id);if(i<0)return trip(tripId);let spot=s[i],k=`atlas-summary-${tripId}-${id}`,summary=localStorage.getItem(k)||spot[4];app.replaceChildren(document.querySelector('#detailTemplate').content.cloneNode(true));detailPage.innerHTML=`<button class="back" id="back">← ZURÜCK ZUR KARTE</button><div class="place-header"><div><p class="eyebrow">STATION ${String(i+1).padStart(2,'0')} · REISEDOKU</p><h1>${spot[1]}</h1></div><div class="place-date">${spot[2].toUpperCase()}</div></div><div class="story-grid"><article class="story"><p>${summary}</p><button class="edit-link" id="edit">Text bearbeiten</button></article><div class="gallery">${spot[5].map((x,n)=>`<div class="media ${n===0?'large':''}" data-kind="${n===1?'VIDEO':'FOTO'}"><img src="${image(x)}" alt="Reiseaufnahme aus ${spot[1]}"></div>`).join('')}</div></div><nav class="pager"><button id="prev">${i?'← '+s[i-1][1]:'—'}</button><button class="map-link" id="mapLink">⌖ KARTE</button><button id="next">${i<s.length-1?s[i+1][1]+' →':'—'}</button></nav>`;back.onclick=mapLink.onclick=()=>go('#trip/'+tripId);prev.onclick=()=>i&&go(`#trip/${tripId}/place/${s[i-1][0]}`);next.onclick=()=>i<s.length-1&&go(`#trip/${tripId}/place/${s[i+1][0]}`);edit.onclick=()=>{let v=prompt(`Zusammenfassung für ${spot[1]}`,summary);if(v?.trim()){localStorage.setItem(k,v.trim());place(tripId,id)}}}
 
@@ -1546,10 +1480,21 @@ async function requestRouteCache(url, options) {
     if (next) next(); else routeCacheRequests--;
   }
 }
+const WATER_ROUTE_VERSION = '20261002-4';
+// A route that needs no calculation: a manual route, or an automatic route stored on this device.
+// undefined = not stored yet (resolveWaterRoute calculates it).
+async function storedWaterRoute(from, to, tripId) {
+  if (!tripId) return undefined;
+  if (globalThis.AtlasManualRoutes) { const manual = await globalThis.AtlasManualRoutes.resolve(tripId, from, to, () => undefined); if (manual !== undefined) return manual; }
+  const key = JSON.stringify([WATER_ROUTE_VERSION, tripId, from, to]);
+  if (serverWaterRoutingCache.has(key)) return serverWaterRoutingCache.get(key);
+  const stored = await persistentRoute(key);
+  return stored && (stored.points === null || Array.isArray(stored.points)) ? stored.points : undefined;
+}
 function resolveWaterRoute(from, to, tripId, automatic = false) {
   if (!automatic && tripId && globalThis.AtlasManualRoutes) return globalThis.AtlasManualRoutes.resolve(tripId, from, to, () => resolveWaterRoute(from, to, tripId, true));
   if (!tripId) return computeWaterRoute(from, to);
-  const version = '20261002-4';
+  const version = WATER_ROUTE_VERSION;
   const key = JSON.stringify([version, tripId, from, to]);
   if (serverWaterRoutingCache.has(key)) return serverWaterRoutingCache.get(key);
   const promise = (async () => {
@@ -1819,7 +1764,7 @@ function journeyStepLabel(summary) {
   try {
     const value=typeof summary?.steps==='string'?JSON.parse(summary.steps):summary?.steps;
     if(typeof value?.person!=='string'||!value.person.trim()||value.person.length>120||!Number.isSafeInteger(value.count)||value.count<0)return '';
-    return new Intl.NumberFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT').format(value.count)+' Schritte · '+value.person;
+    return new Intl.NumberFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT').format(value.count)+' Schritte · '+value.person+(/^\d\d:\d\d$/.test(value.from)&&/^\d\d:\d\d$/.test(value.until)?' · '+value.from+'–'+value.until:'');
   } catch{return '';}
 }
 
@@ -2418,10 +2363,10 @@ function renderHelp() {
       <section class="help-card"><span>01 / KARTE</span><h2>Reisen auf der Weltkarte finden</h2><p>Die Weltkarte zeigt die Reisen, die du sehen darfst. Zoome mit den Kartenknöpfen, dem Mausrad oder zwei Fingern. Beim Zoomen mit dem Mausrad richtet sich die Karte auf die Position des Mauszeigers aus. Stationen erscheinen zunächst als Punkte, näher als Tag-Station (z. B. 2-3 für Tag 2, Station 3) und aus der Nähe automatisch als Miniaturen, wenn ein Vorschaubild vorhanden ist. Die Stationszählung beginnt an jedem Reisetag bei 1; ? kennzeichnet einen fehlenden Reisetag. Über „Reisejahr“ kannst du die Karte filtern.</p></section>
       <section class="help-card"><span>02 / ANSEHEN</span><h2>Eine Reise öffnen</h2><p>Ein einfacher Klick auf eine Station in der Weltkarte öffnet die Reiseübersicht mit den Reisetagen. Ein Doppelklick startet die Diashow ab dieser Station. Auf Touchgeräten gilt entsprechend einmal beziehungsweise zweimal tippen. Du kannst Reisen auch über „Alle Reisen“ öffnen. In der Reise kannst du Stationen und Reisetage öffnen sowie Fotos und Videos ansehen.</p></section>
       ${viewerView ? viewerCards : `
-      <section class="help-card"><span>03 / VERWALTUNG</span><h2>Reisen bearbeiten</h2><p>Unter „Alle Reisen“ aktivierst du als Admin mit „Reisen verwalten“ den Verwaltungsmodus für alle Reisen. „Verwaltung schließen“ beendet ihn; nach dem Neuladen ist er ausgeschaltet. Unter „Alle Reisen“ wählst du „Karte öffnen“ oder „Reiseübersicht öffnen“. Im Verwaltungsmodus bleibt dort pro Reise nur „Reise löschen“. In der Reiseübersicht bearbeitest du Titel, Beschreibung und Teilnehmer, verwaltest Gäste und Einladungen und startest den Foto- und Videoabgleich. Dort kannst du auch bei Reisen ohne GPS einen Hauptort setzen. Verwaltungsbereiche sind nur für Admins sichtbar. In den Reiseansichten kannst du Stationsnamen, Texte und Positionen korrigieren. Undatierte Stationen findest du auf der Reisekarte. Aktiviere „Reisen verwalten“ und wähle unter Station verwalten ein Reisedatum. Originaldateien und Aufnahmezeiten bleiben unverändert.</p></section>
+      <section class="help-card"><span>03 / VERWALTUNG</span><h2>Reisen bearbeiten</h2><p>Öffne eine Reise und wähle „Bearbeiten“; ein zweiter Klick beendet die Bearbeitung. In der Reiseübersicht öffnet „Ganze Reise bearbeiten“ Titel, Beschreibung und Teilnehmer, Gäste und Einladungen, den Foto- und Videoabgleich und „Reise löschen“. Bei Reisen ohne GPS setzt du dort einen Hauptort, bei Reisen ohne Aufnahmedatum ein Reisedatum. Verwaltungsbereiche sind nur für Admins sichtbar. In den Stationsansichten korrigierst du Stationsnamen, Texte und Positionen („Position auf Karte setzen“). Stationen ohne Reisetag tragen ein ? und liegen auf der Reisekarte; unter „Station verwalten“ ordnest du ihnen mit „Datum zuordnen“ einen Tag zu. Originaldateien und Aufnahmezeiten bleiben unverändert.</p></section>
       <section class="help-card"><span>04 / FREIGABEN</span><h2>Zugriff vergeben und entziehen</h2><p>Im Bereich „Zugriff auf alle Reisen“ verwaltest du dauerhafte Archivfreigaben. Für eine einzelne Reise trägst du die E-Mail-Adresse bei „Gast einladen“ ein. Der Gast erhält einen Einmallink. Mit × neben der Adresse entziehst du die Reisefreigabe; eine zusätzliche Archivfreigabe entfernst du separat.</p></section>
       <section class="help-card"><span>05 / MICROSOFT</span><h2>Import und Einladungen</h2><p>Für den OneDrive-Import und den Versand von Einladungen musst du mit dem Microsoft-Administratorkonto angemeldet sein. Gäste benötigen kein Microsoft-Konto.</p></section>
-      <section class="help-card"><span>06 / IPHONE-APP</span><h2>Reise aufzeichnen</h2><p>Starte vor einer Reise oben auf der Weltkarte „Reise starten“ und beende sie danach mit „Beenden“. Das iPhone merkt sich dazwischen etwa alle 50 Meter den Standort; die Daten bleiben auf dem iPhone und werden nach 6 Monaten gelöscht. Aus jeder Aufzeichnung entsteht genau eine Reise mit den gefahrenen und gegangenen Strecken – auf einem von drei Wegen, den die App selbst wählt: Mit eigenem Server und Reise-Automatik sammelt der Server alle Fotos dieser Zeit aus OneDrive in „Reise ab …“, auch wenn die App geschlossen ist. Mit OneDrive ohne eigene Automatik schlägt dir die App nach dem Beenden oder beim nächsten Öffnen eine Reise aus deinem OneDrive-Kameraordner vor. Ohne OneDrive kommt derselbe Vorschlag aus deiner Fotos-Mediathek. Ein Tipp genügt; die Strecken werden gleich eingetragen. Die Einrichtung der Reise-Automatik am eigenen Server beschreibt docs/FOTOAUTOMATIK.md im Server-Repository.</p></section>`}
+      <section class="help-card"><span>06 / IPHONE-APP</span><h2>Reise aufzeichnen</h2><p>Starte vor einer Reise oben auf der Weltkarte „Reise starten“ und beende sie danach mit „Beenden“. Das iPhone merkt sich dazwischen etwa alle 50 Meter den Standort; die Daten bleiben auf dem iPhone und werden nach 6 Monaten gelöscht. Aus jeder Aufzeichnung entsteht genau eine Reise mit den gefahrenen und gegangenen Strecken – auf einem von drei Wegen, den die App selbst wählt: Mit eigenem Server und Reise-Automatik sammelt der Server alle Fotos dieser Zeit aus OneDrive in „Reise ab …“, auch wenn die App geschlossen ist. Mit OneDrive ohne eigene Automatik schlägt dir die App nach dem Beenden oder beim nächsten Öffnen eine Reise aus deinem OneDrive-Kameraordner vor. Ohne OneDrive kommt derselbe Vorschlag aus deiner Fotos-Mediathek – dafür AlleReisen am besten vollen Zugriff auf die Fotos geben (iOS-Einstellungen › AlleReisen › Fotos), sonst findet die App nur die freigegebenen Aufnahmen. Ein Tipp genügt; die Strecken werden gleich eingetragen. Die Einrichtung der Reise-Automatik am eigenen Server beschreibt docs/FOTOAUTOMATIK.md im Server-Repository.</p></section>`}
     </div>
     <button class="primary help-archive" type="button">Alle Reisen öffnen</button>
     <p class="eyebrow website-version"></p>`;
@@ -2544,7 +2489,9 @@ function mountWorldRecordingButton(bar) {
       island = document.createElement('div'); island.className = 'world-recording-notice'; island.setAttribute('role', 'status');
       island.innerHTML = '<p></p><button type="button" class="world-recording-notice-close" aria-label="Hinweis schließen">×</button>';
       island.querySelector('button').onclick = () => island.remove();
-      bar.after(island);
+      // Fixed over everything: appended to the body, not into the world page (an element between the header and the
+      // world map must not change the page layout around the native map).
+      document.body.append(island);
     }
     island.querySelector('p').textContent = text;
   };
@@ -2555,11 +2502,12 @@ function mountWorldRecordingButton(bar) {
     try {
       const current = await ReiseRecording.status();
       if (current.recording && !await window.ReiseConfirm('Reise beenden? Die Aufzeichnung stoppt und die Strecken werden in deine Reisen übernommen.')) return;
-      if (current.recording) note('Strecken werden übernommen …');
       const result = current.recording ? await ReiseRecording.stop() : await ReiseRecording.start();
-      if (result) note(result.message);
-      // Without the own server's automation the app offers the trip from OneDrive or the photo library right away.
-      if (current.recording) { document.querySelector('.world-recording-notice')?.remove(); ReiseRecording.offer?.({ go, force: true }); }
+      // After ending, the offer island (trip from OneDrive or the photo library) follows right away; a message in
+      // between only flashed for a moment. The end message appears only when no offer follows (e.g. Full automation).
+      const offered = current.recording ? await ReiseRecording.offer?.({ go, force: true }) : false;
+      if (offered === true) return;
+      if (result) note(offered === 'linked' && result.linked ? result.linked : result.message);
     } catch (error) { note(error.message); }
     finally { button.disabled = false; refresh(); }
   };
@@ -2582,7 +2530,6 @@ function webArchiveStatusRows() {
     {label:'Website',text:access.isLocal?'Lokales Archiv – Website optional':location.origin,state:access.isLocal?'neutral':'ok'},
     {label:'Abgleich',text:access.isLocal?'Website-Verbindung über Online-Reisen öffnen':'Änderungen werden direkt auf dieser Website gespeichert'}];
 }
-function renderWebArchiveStatus(page) {renderArchiveConnectionStatus(page,webArchiveStatusRows(),()=>go('#settings'));}
 function webRoleText() { return access.isAdmin ? 'Admin' : access.canImport ? 'Import' : access.isGuest ? 'Gast' : 'Ansehen'; }
 function renderWebAccountLine(page) {
   const line=document.createElement('p');line.className='archive-account-line';
@@ -2593,16 +2540,6 @@ function renderWebAccountLine(page) {
   // Same row as the "ÜBERSICHT" label above the title.
   const eyebrow=page.querySelector('.library-head .eyebrow');
   if(eyebrow){const row=document.createElement('div');row.className='library-eyebrow-row';eyebrow.replaceWith(row);row.append(eyebrow,line);}else page.prepend(line);
-}
-function renderWebConnectionsPage() {
-  app.replaceChildren();const page=document.createElement('section');page.className='detail-page connections-page';
-  const heading=document.createElement('h1');heading.textContent='Anmeldung & Verbindungen';page.append(heading);
-  const card=renderArchiveConnectionStatus(page,webArchiveStatusRows());card.querySelector('h2').remove();heading.after(card);
-  const links=[['Microsoft-Anmeldung öffnen','./login.html'],['Gastzugang öffnen','./gastzugang.html'],['Zur Reiseliste','#library']];
-  if(access.canConfigureAutomation)links.unshift(['Fotoautomatik einstellen','./api/travel-automation-setup.php']);
-  for(const [label,url] of links){const link=document.createElement('a');link.className='edit-link';link.textContent=label;link.href=url;page.append(link);}
-  if(access.loggedIn&&!access.isLocal)renderAccountDeletion(page);
-  app.append(page);
 }
 // Deleting the own server account (Apple/store requirement; also available to guests).
 function renderAccountDeletion(page) {
@@ -2946,13 +2883,22 @@ async function renderAppleWorldMap(node, allStops) {
         group.slice(1).forEach((to,index)=>{routes.push({trip,index,from:group[index],to});map.connections.set(trip+'/'+index,{tripId:trip,fromId:String(group[index].id),toId:String(to.id)});});
       }
       const tripColors=new Map([...groups.keys()].map(trip=>[trip,tripRouteColor(trip)]));
+      // 0.4.2: routes already stored (on the device or a manual route) go to the map in one go, so they appear
+      // together; only routes never calculated before follow one by one.
+      const ends=r=>[[Number(r.from.latitude),Number(r.from.longitude)],[Number(r.to.latitude),Number(r.to.longitude)]];
+      const pending=[],stored=[];
+      await Promise.all(routes.map(async route=>{const [a,b]=ends(route);let points;try{points=await storedWaterRoute(a,b,route.trip);}catch{}
+        if(points===undefined)pending.push(route);else if(!points?.error)stored.push({key:route.trip+'/'+route.index,points:points?.length>=2?points:[a,b],color:tripColors.get(route.trip)});}));
+      if(stored.length&&version===generation&&!map.removed&&node.isConnected){
+        try{if(map.routes)await map.routes(stored);else for(const route of stored)await map.route(route.key,route.points,route.color);}catch{}
+      }
       // Do not start thousands of routing jobs or retain results from an old year.
       let next=0;
-      const worker=async()=>{while(next<routes.length && version===generation && !map.removed && node.isConnected){
-        const {trip,index,from,to}=routes[next++],a=[Number(from.latitude),Number(from.longitude)],b=[Number(to.latitude),Number(to.longitude)];
+      const worker=async()=>{while(next<pending.length && version===generation && !map.removed && node.isConnected){
+        const {trip,index}=pending[next],[a,b]=ends(pending[next++]);
         try{const points=await resolveWaterRoute(a,b,trip);if(version===generation && !map.removed && node.isConnected && !points?.error)await map.route(trip+'/'+index,points?.length>=2?points:[a,b],tripColors.get(trip));}catch{}
       }};
-      for(let i=0;i<Math.min(4,routes.length);i++)void worker();
+      for(let i=0;i<Math.min(4,pending.length);i++)void worker();
     };
     const result=drawing.then(run);drawing=result.catch(()=>{});return result;
   };

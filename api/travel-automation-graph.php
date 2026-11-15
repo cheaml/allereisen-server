@@ -10,13 +10,20 @@ final class TravelGraph {
     public function request(string $method,string $path,?array $body=null):array {
         if(str_contains($path,'://')||str_starts_with($path,'/')||str_contains($path,"\r")||str_contains($path,"\n"))throw new RuntimeException('unsafe_graph_path');
         if($this->transport!==null)return ($this->transport)($method,$path,$body);
-        $ch=curl_init('https://graph.microsoft.com/v1.0/'.$path);$headers=['Authorization: Bearer '.$this->token];
-        $options=[CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_TIMEOUT=>30];
-        if($body!==null){$headers[]='Content-Type: application/json';$options[CURLOPT_POSTFIELDS]=json_encode($body,JSON_THROW_ON_ERROR);}
-        $options[CURLOPT_HTTPHEADER]=$headers;curl_setopt_array($ch,$options);$raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
-        if($raw===false)throw new RuntimeException('graph_transport_failed');
+        // 0.4.2: OneDrive answers slowly or with 5xx at times. GET requests are tried up to three times (pause 2 s,
+        // then 6 s); the final error names the HTTP status or the cURL error number for the status file.
+        for($attempt=1;;$attempt++){
+            $ch=curl_init('https://graph.microsoft.com/v1.0/'.$path);$headers=['Authorization: Bearer '.$this->token];
+            $options=[CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_TIMEOUT=>30,CURLOPT_CONNECTTIMEOUT=>10];
+            if($body!==null){$headers[]='Content-Type: application/json';$options[CURLOPT_POSTFIELDS]=json_encode($body,JSON_THROW_ON_ERROR);}
+            $options[CURLOPT_HTTPHEADER]=$headers;curl_setopt_array($ch,$options);$raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);$errno=curl_errno($ch);curl_close($ch);
+            $transient=$raw===false||in_array($status,[429,500,502,503,504],true);
+            if(!$transient||$method!=='GET'||$attempt>=3)break;
+            sleep($attempt===1?2:6);
+        }
+        if($raw===false)throw new RuntimeException('graph_transport_failed_'.$errno);
         if($status===404)return ['status'=>404,'json'=>[]];
-        if(!in_array($status,[200,201],true))throw new RuntimeException($status===401?'onedrive_reconnect_required':($status===429?'onedrive_throttled_retry':'graph_request_failed'));
+        if(!in_array($status,[200,201],true))throw new RuntimeException($status===401?'onedrive_reconnect_required':($status===429?'onedrive_throttled_retry':'graph_request_failed_'.$status));
         return ['status'=>$status,'json'=>json_decode($raw,true,128,JSON_THROW_ON_ERROR)];
     }
     public function get(string $path):array {$reply=$this->request('GET',$path);if($reply['status']!==200)throw new RuntimeException('graph_item_missing');return $reply['json'];}

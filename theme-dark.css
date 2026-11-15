@@ -7,6 +7,8 @@
   --d-text:#ebe4d6; --d-muted:#b2a998; --d-green:#9fd3bd; --d-accent:#f2a052; --d-link:#ff9d88;
   --ink:#ebe4d6; --paper:#121715; --pine:#9fd3bd; --muted:#a3ada7; --line:#3a4843;
   color-scheme:dark;
+  /* The page root too: below a short page (e.g. collapsed settings) the light root background showed as a white band. */
+  background:var(--d-page);
 }
 :root[data-theme=dark] body:not(#_){background:var(--d-page)!important;color:var(--d-text)}
 

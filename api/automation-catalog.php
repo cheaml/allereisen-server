@@ -73,7 +73,7 @@ function automation_catalog_import(PDO $db,int $owner,array $trip,array $record,
             $item=['id'=>$target['id'],'name'=>$media['name']??$target['name'],'location'=>['latitude'=>$media['latitude']??null,'longitude'=>$media['longitude']??null],
                 ($media['kind']??'photo')==='video'?'video':'photo'=>[],
                 '_capture'=>['date'=>$taken,'source'=>$taken===null?'unknown':(($media['captureSource']??null)==='file-created'?'file-created':'original-metadata'),'original_taken_at'=>$media['takenAt']??null]];
-            $plan=sync_addition_plan($stops,[$item],static fn()=>automation_uuid(),(float)($trip['station_radius_km']??1.0));
+            $plan=sync_addition_plan($stops,[$item],static fn()=>automation_uuid(),(float)($trip['station_radius_km']??SYNC_STATION_RADIUS_KM));
             if($plan['new_stops']){$max=0;foreach($stops as $s)$max=max($max,(int)$s['position']);$q=$db->prepare('UPDATE trip_stops SET position=position+? WHERE trip_id=?');$q->execute([$max+count($plan['stops'])+1,$trip['id']]);}
             $insert=$db->prepare('INSERT INTO trip_stops(id,trip_id,position,name,latitude,longitude,starts_at,ends_at) VALUES(?,?,?,?,?,?,?,?)');
             $update=$db->prepare('UPDATE trip_stops SET position=?,starts_at=?,ends_at=? WHERE id=? AND trip_id=?');

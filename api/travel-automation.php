@@ -119,6 +119,10 @@ final class TravelAutomationRunner {
         foreach($recordings as $recording)if($recording['until']===null||$recording['until']>=$now->getTimestamp()-7*86400)$window['from']=min($window['from'],$recording['from']);
         $result=['at'=>$now->format(DATE_ATOM),'status'=>'ready','through'=>$window['through'],'dryRun'=>$dryRun,'scanned'=>0,'candidates'=>0,'timed'=>0,'homeCaptures'=>0,'imported'=>0,'review'=>0];
         if(!$s['enabled']&&!$dryRun)return $result+['disabled'=>true];
+        // 0.4.2: year/month folders (e.g. "2017", "2017/05") outside every period that matters are not listed at all.
+        $periods=travel_scan_periods($s,$state,$window,$recordings,$now->getTimestamp());
+        // Files met in the current discovery cycle: the review list only shows cases of the folders still watched.
+        if(($state['scan']??null)===null)$state['cycle']=[];
         $scan=$state['scan']??[['chain'=>$source,'next'=>null,'items'=>[],'offset'=>0,'loaded'=>false,'pages'=>[]]];
         $persist=function()use(&$state,&$scan,$path){$state['scan']=$scan;travel_save($path,$state);};$persist();
         $started=microtime(true);$readCount=0;$blocked=false;
@@ -141,10 +145,13 @@ final class TravelAutomationRunner {
                 $itemPath=implode('/',array_reverse(array_column(array_slice($chain,0,-1),'name')));
                 $excluded=false;foreach($state['excludedTargets'] as $target=>$_)if(TravelOneDriveScope::within($itemPath,$target)){$excluded=true;break;}
                 if(!$excluded&&!isset($item['remoteItem'])){
-                    if(isset($item['folder']))$scan[]=['chain'=>$chain,'next'=>null,'items'=>[],'offset'=>0,'loaded'=>false,'pages'=>[]];
+                    if(isset($item['folder'])&&!travel_folder_outside((string)($item['name']??''),(string)($scan[0]['chain'][0]['name']??''),$periods,$s['timezone']))$scan[]=['chain'=>$chain,'next'=>null,'items'=>[],'offset'=>0,'loaded'=>false,'pages'=>[]];
                     if(isset($item['file'])&&(isset($item['image'])||isset($item['photo'])||isset($item['video'])||preg_match('/\.(jpe?g|heic|heif|png|webp|tiff?|mov|mp4|m4v)$/i',$item['name']??''))){
-                        $id=(string)$item['id'];$version=(string)($item['eTag']??'');$seen=$state['seen'][$id]??null;$known=$state['events'][$id]??null;
-                        if($known&&$known['media']['version']!==$version){$state['seen'][$id]=['version'=>$version,'name'=>$item['name'],'review'=>true,'reason'=>'event-version-changed'];if(isset($state['jobs'][$id]))$state['jobs'][$id]['blocked']='event-version-changed';throw new RuntimeException('event-version-changed');}
+                        $id=(string)$item['id'];$version=(string)($item['eTag']??'');$seen=$state['seen'][$id]??null;$known=$state['events'][$id]??null;$state['cycle'][$id]=1;
+                        if($known&&$known['media']['version']!==$version){$state['seen'][$id]=['version'=>$version,'name'=>$item['name'],'review'=>true,'reason'=>'event-version-changed'];if(isset($state['jobs'][$id]))$state['jobs'][$id]['blocked']='event-version-changed';
+                            // 0.4.2: a changed original (e.g. edited on the iPhone, uploaded again) becomes a review case of its
+                            // own; the discovery goes on, so new photos (and running trip recordings) are not held up by it.
+                            $scan[0]['offset']++;$persistSoon();continue;}
                         // Settled by hand on the settings page (added to a trip or ignored): never offered for review again.
                         elseif(!$known&&empty($seen['manual'])&&($seen===null||$seen['version']!==$version||($seen['retryAfter']??0)<=$now->getTimestamp()||($seen['rules']??null)!==$rules)){
                             // Unchanged file already read once (rule change, or a capture newer than the window
@@ -222,6 +229,7 @@ final class TravelAutomationRunner {
                 $job['lastAttempt']=$now->format(DATE_ATOM);$persist();
             }unset($job);
             // Null means a NEW complete scan starts next run, not an empty page.
+            $state['reviewScope']=$state['cycle']??[];
             $scan=null;$persist();
         }
         $result['scanComplete']=$scan===null||$scan===[];
@@ -235,7 +243,7 @@ final class TravelAutomationRunner {
             if([$state['backfillDone']['from']??null,$state['backfillDone']['until']??null]!==$period){$state['backfillDone']=['from'=>$period[0],'until'=>$period[1],'at'=>$now->format(DATE_ATOM)];$persist();}
         }
         if(isset($state['backfillDone'])&&[$state['backfillDone']['from'],$state['backfillDone']['until']]===$period)$result['backfillDone']=$state['backfillDone'];
-        $issues=[];foreach($state['seen'] as $id=>$e)if($e['review']??false)$issues[$id]=true;
+        $issues=[];foreach($state['seen'] as $id=>$e)if(($e['review']??false)&&travel_in_review_scope($state,(string)$id))$issues[$id]=true;
         foreach($state['jobs'] as $id=>$j)if(isset($j['blocked'])||$j['status']==='review')$issues[$id]=true;
         $result['review']=count($issues);
         $result['planned']=[];foreach($state['jobs'] as $id=>$job)$result['planned'][]=['source'=>$job['media']['name'],'trip'=>$state['trips'][$job['tripId']]['title'],'tripId'=>$job['tripId'],'status'=>$job['status'],'review'=>$job['blocked']??$job['reason']??null];

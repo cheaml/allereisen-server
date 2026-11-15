@@ -20,7 +20,7 @@ const TRAVEL_DEFAULT_PHOTO_SIDE=2001;
 const TRAVEL_DEFAULT_VIDEO_SIDE=1080;
 function travel_settings(array $input):array {
     $defaults=['enabled'=>false,'smallPhotos'=>false,'frequentRuns'=>false,'timezone'=>'Europe/Vienna','radiusKm'=>30,'extraHomes'=>[],
-        'quietDays'=>0,'homeBreakHours'=>0,'stationRadiusKm'=>1.0,'homeName'=>'',
+        'quietDays'=>0,'homeBreakHours'=>0,'stationRadiusKm'=>0.3,'homeName'=>'',
         'minPhotoShortSide'=>TRAVEL_DEFAULT_PHOTO_SIDE,'minVideoShortSide'=>TRAVEL_DEFAULT_VIDEO_SIDE,
         'sourceFolder'=>'Photos/Eigene Aufnahmen','startAt'=>null,'backfillFrom'=>null,'backfillUntil'=>null,
         'scanItemsPerRun'=>2000,'mediaPerRun'=>10,'maxRunSeconds'=>480];
@@ -212,3 +212,29 @@ function travel_plan(array $events,array &$trips,array $rules=[]):array {
     }
     return ['assignments'=>$assignments,'review'=>$review];
 }
+
+/**
+ * 0.4.2: periods whose year/month folders the discovery still lists: the last 45 days, a catch-up period until it
+ * is done, the watch start without catch-up, and trip recordings. Folders of other years/months are skipped,
+ * so a camera folder with many years stays as fast as one with a single month.
+ */
+function travel_scan_periods(array $s,array $state,array $window,array $recordings,int $now):array {
+    $later=$now+86400;$periods=[[$now-45*86400,$later]];
+    $from=$s['backfillFrom']??null;$until=$s['backfillUntil']??null;
+    $done=isset($state['backfillDone'])&&[$state['backfillDone']['from']??null,$state['backfillDone']['until']??null]===[$from,$until];
+    if($from===null)$periods[]=[(int)$window['from'],$later];
+    elseif(!$done)$periods[]=[travel_timestamp($from)??(int)$window['from'],travel_timestamp($until)??$later];
+    foreach($recordings as $r)if(is_int($r['from']??null))$periods[]=[$r['from']-86400,($r['until']??$later)+86400];
+    return $periods;
+}
+/** A folder named like a year ("2017") or a month inside a year folder ("05" in "2017") outside all periods. */
+function travel_folder_outside(string $name,string $parent,array $periods,string $timezone):bool {
+    try{$zone=new DateTimeZone($timezone);}catch(Exception){$zone=new DateTimeZone('UTC');}
+    if(preg_match('/^(19[9]\d|2[01]\d\d)$/D',$name)){$start=new DateTimeImmutable($name.'-01-01',$zone);$end=$start->modify('+1 year');}
+    elseif(preg_match('/^(19[9]\d|2[01]\d\d)$/D',$parent)&&preg_match('/^(0?[1-9]|1[0-2])$/D',$name)){$start=new DateTimeImmutable(sprintf('%s-%02d-01',$parent,(int)$name),$zone);$end=$start->modify('+1 month');}
+    else return false;
+    foreach($periods as [$from,$until])if($from<$end->getTimestamp()&&$until>=$start->getTimestamp())return false;
+    return true;
+}
+/** Review cases of files no longer met by the discovery (other folder, skipped year/month) are not shown. */
+function travel_in_review_scope(array $state,string $id):bool {return !isset($state['reviewScope'])||isset($state['reviewScope'][$id]);}

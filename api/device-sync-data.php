@@ -47,11 +47,14 @@ function device_sync_resolve_folder(PDO $db,array $config,int $owner,array $inpu
     require_once __DIR__.'/mail.php';
     $token=graph_access_token($db,$config,$owner);if(!$token)throw new RuntimeException('Bitte auf der Website erneut mit Microsoft anmelden, um OneDrive freizugeben.',409);
     $root=(string)($source['rootId']??'');
+    // 0.4.2: a trip from a trip recording keeps only the photos of the recording window ("<folder>|range:<from>-<to>",
+    // Unix seconds); the folder is checked, the window stays with it.
+    $range='';if(preg_match('/^(.+)(\|range:\d{1,12}-\d{1,12})$/D',$root,$parts)){$root=$parts[1];$range=$parts[2];}
     $read=static function(string $path)use($token): ?array{$c=curl_init('https://graph.microsoft.com/v1.0/me/drive/'.$path.'?$select=id,name,folder,parentReference');curl_setopt_array($c,[CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$token],CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>30]);$raw=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);if($status===404||$status===400)return null;if($status!==200)throw new RuntimeException('OneDrive-Ordner konnte nicht geprüft werden. Bitte die Verbindung prüfen.',409);$item=json_decode((string)$raw,true);if(!is_array($item))throw new RuntimeException('Unvollständige OneDrive-Antwort.',409);return $item;};
     $item=$read('items/'.rawurlencode($root));
     if(!$item)$item=$read('root:/'.implode('/',array_map('rawurlencode',explode('/',$root))));
     if(!$item||!isset($item['folder']))throw new RuntimeException('Der OneDrive-Quellordner ist nicht mehr zugänglich.',422);
-    $input['_verifiedOriginalRootId']=$root;$input['trip']['source']['rootId']=device_sync_folder_path($item);return $input;
+    $input['_verifiedOriginalRootId']=$root.$range;$input['trip']['source']['rootId']=device_sync_folder_path($item).$range;return $input;
 }
 function device_sync_folder_path(array $item): string {
     $parent=(string)($item['parentReference']['path']??'');$at=strpos($parent,'root:');

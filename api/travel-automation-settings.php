@@ -11,7 +11,7 @@ function travel_settings_path(string $root,mixed $path):string {
 }
 
 /** Choices offered on the settings page (value => label). */
-const TRAVEL_STATION_SIZES=['0.3'=>'klein (300 m) – Städtereise','1'=>'normal (1 km) – Standard','2'=>'groß (2 km) – Wandern, Natur','5'=>'sehr groß (5 km) – Roadtrip'];
+const TRAVEL_STATION_SIZES=['0.3'=>'klein (300 m) – Standard','1'=>'normal (1 km)','2'=>'groß (2 km) – Wandern, Natur','5'=>'sehr groß (5 km) – Roadtrip'];
 const TRAVEL_QUIET_DAYS=['0'=>'nie – erst ein Heimatfoto beendet die Reise','2'=>'nach 2 Tagen ohne Reisefoto','3'=>'nach 3 Tagen ohne Reisefoto','5'=>'nach 5 Tagen ohne Reisefoto','7'=>'nach 7 Tagen ohne Reisefoto'];
 const TRAVEL_HOME_BREAKS=['0'=>'nein – jedes Heimatfoto beendet die Reise','12'=>'bis 12 Stunden zu Hause','24'=>'bis 24 Stunden zu Hause','48'=>'bis 48 Stunden zu Hause'];
 const TRAVEL_EXTRA_HOMES=3;
@@ -70,7 +70,7 @@ function travel_review_cases(string $privateDirectory,int $limit=50,?string $lab
     $file=$privateDirectory.'/state.json';if(!is_file($file)||filesize($file)>64*1024*1024)return [0,[]];
     try{$state=json_decode((string)file_get_contents($file),true,256,JSON_THROW_ON_ERROR);}catch(JsonException){return [0,[]];}
     $cases=[];
-    foreach((array)($state['seen']??[]) as $id=>$seen){if(empty($seen['review']))continue;$cases[$id]=['name'=>(string)($seen['name']??$id),'reason'=>(string)($seen['reason']??''),'manual'=>empty($seen['manual']),'at'=>travel_review_time($seen),'place'=>travel_review_place($seen,$labels)];}
+    foreach((array)($state['seen']??[]) as $id=>$seen){if(empty($seen['review'])||!travel_in_review_scope($state,(string)$id))continue;$cases[$id]=['name'=>(string)($seen['name']??$id),'reason'=>(string)($seen['reason']??''),'manual'=>empty($seen['manual']),'at'=>travel_review_time($seen),'place'=>travel_review_place($seen,$labels)];}
     foreach((array)($state['jobs']??[]) as $id=>$job){$reason=$job['blocked']??(($job['status']??'')==='review'?($job['review']??'review'):null);if($reason===null)continue;$cases[$id]=['name'=>(string)($job['media']['name']??$id),'reason'=>(string)$reason,'manual'=>false,'at'=>is_int($job['capture']??null)?$job['capture']:null,'place'=>travel_review_place($job,$labels)];}
     uasort($cases,static fn($a,$b)=>strcmp($b['name'],$a['name']));
     $items=[];foreach(array_slice($cases,0,$limit,true) as $id=>$case){[$text,$hint]=TRAVEL_REVIEW_REASONS[$case['reason']]??[$case['reason'],'Wird beim nächsten Lauf erneut geprüft.'];$items[]=[(string)$id,$case['name'],$text,$hint,$case['manual'],$case['at'],$case['place']];}

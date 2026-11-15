@@ -24,8 +24,11 @@ function sync_distance(array $a,array $b): ?float {
   $h=sin($dLat/2)**2+cos(deg2rad((float)$a['latitude']))*cos(deg2rad((float)$b['latitude']))*sin($dLon/2)**2;
   return 12742*asin(min(1,sqrt($h)));
 }
-/** Media join a station of the same day within $radiusKm (default 1 km). */
-function sync_addition_plan(array $existing,array $items,callable $newId,float $radiusKm=1.0): array {
+/** Media join a station of the same day within $radiusKm (default 300 m since 0.4.2), in time order: a located photo
+ * joins the station current at its time (latest start before it) or, failing that, the next one, if within the size of
+ * that station's place. Coming back to a place after another station starts a new station (same rule as the apps). */
+const SYNC_STATION_RADIUS_KM=0.3;
+function sync_addition_plan(array $existing,array $items,callable $newId,float $radiusKm=SYNC_STATION_RADIUS_KM): array {
   if(!is_finite($radiusKm)||$radiusKm<0.05||$radiusKm>50)throw new InvalidArgumentException('invalid_station_radius');
   usort($items,static fn($a,$b)=>strcmp(media_capture_date($a)??'9999',media_capture_date($b)??'9999')?:strcmp($a['id'],$b['id']));
   $stops=array_column($existing,null,'id');$new=[];$media=[];
@@ -33,7 +36,19 @@ function sync_addition_plan(array $existing,array $items,callable $newId,float $
     $taken=media_capture_date($item);$day=$taken?substr($taken,0,10):null;
     $location=['latitude'=>is_numeric($item['location']['latitude']??null)?(float)$item['location']['latitude']:null,'longitude'=>is_numeric($item['location']['longitude']??null)?(float)$item['location']['longitude']:null];
     $target=null;$best=INF;
-    foreach($stops as $id=>$stop){
+    if($taken!==null&&$location['latitude']!==null&&$location['longitude']!==null){
+      $before=null;$after=null;
+      foreach($stops as $id=>$stop){
+        if(!$stop['starts_at']||substr($stop['starts_at'],0,10)!==$day)continue;
+        if($stop['starts_at']<=$taken){if($before===null||$stop['starts_at']>$stops[$before]['starts_at'])$before=(string)$id;}
+        elseif($after===null||$stop['starts_at']<$stops[$after]['starts_at'])$after=(string)$id;
+      }
+      foreach([$before,$after] as $id){
+        if($id===null)continue;$distance=sync_distance($location,$stops[$id]);
+        if($distance===null||$distance<=$radiusKm){$target=$id;break;}
+      }
+    }else foreach($stops as $id=>$stop){
+      // Without a place or a date: the closest station of the same day in time, as before.
       if(($stop['starts_at']?substr($stop['starts_at'],0,10):null)!==$day)continue;
       $distance=sync_distance($location,$stop);if($distance!==null&&$distance>$radiusKm)continue;
       // Multiple visits to a place on the same day use the closest time range.
@@ -102,6 +117,7 @@ function handle_trip_media_sync(PDO $db,array $config,array $input): never {
   require_trip_editor($db,(string)($input['trip']??''));$trip=(string)($input['trip']??'');$nonce=(string)($input['sync_token']??'');
   $snapshot=sync_snapshot($db,$trip);$record=$snapshot['trip'];if(!$record)json(['error'=>'Reise nicht gefunden.'],404);
   $folder=trim((string)$record['source_folder']);$segments=explode('/',$folder);
+  if(str_contains($folder,'|range:'))json(['error'=>'Diese Reise stammt aus einer Aufzeichnung und enthält nur die Aufnahmen dieser Zeit. Neue Aufnahmen gleicht die App ab; ein Ordnerabgleich würde den ganzen Kamera-Ordner einschließen.'],422);
   if(str_starts_with($folder,'reise://'))json(['error'=>'Diese Reise verwendet Originalzuordnungen. Neue Aufnahmen werden durch die Fotoautomatik zugeordnet; ein Ordnerabgleich würde andere Aufnahmen einschließen.'],422);
   if($folder===''||array_intersect(['','.','..'],$segments))json(['error'=>'Für diese Reise ist kein gültiger OneDrive-Ordner hinterlegt.'],422);
   $token=graph_access_token($db,$config,(int)$record['user_id']);if(!$token)json(['error'=>'OneDrive-Verbindung ist abgelaufen. Bitte erneut mit Microsoft anmelden.'],409);

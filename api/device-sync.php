@@ -194,8 +194,12 @@ if($action==='travel-recording'&&in_array($_SERVER['REQUEST_METHOD'],['GET','POS
     $active=travel_recording_active($recordings);$latest=$active??(end($recordings)?:null);
     // 0.4.2: which trip the automation made from each recording (one recording, one trip), so the app links its own
     // recording to that trip instead of offering another one.
-    $made=travel_recording_trips($private);
-    $list=array_map(static fn($r)=>['id'=>$r['id'],'title'=>$r['title'],'from'=>$r['from'],'until'=>$r['until'],'tripId'=>$made[$r['id']]??null],array_slice($recordings,-20));
+    $made=travel_recording_trips($private);$handled=$made;
+    // A trip deleted since then no longer counts (the app may then offer the trip of that recording again); "handled"
+    // still tells the app that the automation is done with that recording, so it need not wait for it.
+    if($made){$ids=array_values(array_unique($made));$q=$db->prepare('SELECT id FROM trips WHERE id IN ('.implode(',',array_fill(0,count($ids),'?')).')');$q->execute($ids);
+        $alive=array_flip($q->fetchAll(PDO::FETCH_COLUMN));$made=array_filter($made,static fn($trip)=>isset($alive[$trip]));}
+    $list=array_map(static fn($r)=>['id'=>$r['id'],'title'=>$r['title'],'from'=>$r['from'],'until'=>$r['until'],'tripId'=>$made[$r['id']]??null,'handled'=>isset($handled[$r['id']])],array_slice($recordings,-20));
     json(['available'=>true,'active'=>$active!==null,'recording'=>$latest===null?null:['id'=>$latest['id'],'title'=>$latest['title'],'from'=>gmdate(DATE_ATOM,$latest['from']),'until'=>$latest['until']===null?null:gmdate(DATE_ATOM,$latest['until'])],'recordings'=>$list]);
 }
 if($action==='administration') {

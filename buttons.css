@@ -4,7 +4,7 @@
 :root{--btn-tint:#26473e;--btn-on-tint:#fff;--btn-fill:rgba(120,120,128,.14);--btn-fill-pressed:rgba(120,120,128,.24);--btn-danger:#c4372b;--btn-gap:10px}
 :root[data-theme=dark]{--btn-tint:#9fd3bd;--btn-on-tint:#10201b;--btn-fill:rgba(120,120,128,.26);--btn-fill-pressed:rgba(120,120,128,.38);--btn-danger:#ff6b5f}
 
-html:root body :is(.primary,.edit-link,a.trip-open,.admin-trip-actions > a,.admin-trip-actions > button,.source-button,.create-button,.trip-geocode-button,.menu-action button,.native-save-status :is(button,a),.import-card > button,.trip-management-body button,.settings-area button:not(.world-recording-notice-close)):not(.native-journey-nav *):not(.media-lightbox *):not(#_):not(#__):not(#___){
+html:root body :is(.primary,.edit-link,.back,a.trip-open,.admin-trip-actions > a,.admin-trip-actions > button,.source-button,.create-button,.trip-geocode-button,.menu-action button,.native-save-status :is(button,a),.import-card > button,.trip-management-body button,.settings-area button:not(.world-recording-notice-close)):not(.native-journey-nav *):not(.media-lightbox *):not(#_):not(#__):not(#___){
   min-height:44px!important;padding:11px 16px!important;border:0!important;border-radius:12px!important;
   background:var(--btn-fill)!important;color:var(--btn-tint)!important;box-shadow:none!important;
   font:600 15px/1.3 -apple-system,system-ui,"Segoe UI",sans-serif!important;letter-spacing:0!important;text-transform:none!important;text-decoration:none!important}
@@ -19,3 +19,9 @@ html:root body .admin-trip-actions > *:not(#_):not(#__){margin:0!important;width
 html:root body :is(.import-card,.trip-management-body,.native-trip-recording) > :is(button,a.edit-link,a.primary):not(#_):not(#__){margin:0!important;display:flex!important;width:100%}
 html:root body :is(.import-card,.trip-management-body,.native-trip-recording) > :is(button,a.edit-link,a.primary):not([hidden]) ~ :is(button,a.edit-link,a.primary):not(#_):not(#__){margin-top:var(--btn-gap)!important}
 html:root body :is(.import-card,.trip-management-body,.native-trip-recording) > [hidden]:not(#_):not(#__){display:none!important}
+
+/* Disclosure topics (e.g. "Ganze Reise bearbeiten" › Titel, Texte & Teilnehmer; sync lists): same grey fill and green tint as further actions. */
+html:root body :is(.trip-management,.trip-management-section,.native-sync-trip,.native-sync-backups,.native-sync-history,.website-difference) > summary:not(.native-journey-nav *):not(#_):not(#__):not(#___){
+  min-height:44px!important;padding:11px 16px!important;border:0!important;border-radius:12px!important;
+  background:var(--btn-fill)!important;color:var(--btn-tint)!important;box-shadow:none!important;
+  font:600 15px/1.3 -apple-system,system-ui,"Segoe UI",sans-serif!important;letter-spacing:0!important;text-transform:none!important}
