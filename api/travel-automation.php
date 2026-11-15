@@ -39,8 +39,11 @@ function travel_recording_trips(string $privateDirectory):array {
     try{$map=json_decode((string)file_get_contents($file),true,4,JSON_THROW_ON_ERROR);}catch(JsonException){return [];}
     return is_array($map)?array_filter($map,static fn($v,$k)=>is_string($k)&&is_string($v)&&preg_match('/^[a-f0-9-]{36}$/D',$v),ARRAY_FILTER_USE_BOTH):[];
 }
+// 0.4.2: photos a few minutes before the start or after the end still belong to the recording (same margin as the app,
+// RecordingRange.Margin): the first photo is often taken just before tapping "Reise starten".
+const TRAVEL_RECORDING_MARGIN=600;
 function travel_recording_for(array $recordings,int $capture):?array {
-    foreach($recordings as $r)if($capture>=$r['from']&&($r['until']===null||$capture<=$r['until']))return $r;return null;
+    foreach($recordings as $r)if($capture>=$r['from']-TRAVEL_RECORDING_MARGIN&&($r['until']===null||$capture<=$r['until']+TRAVEL_RECORDING_MARGIN))return $r;return null;
 }
 /** Participant name of the automation owner (as set in the app); new automatic trips start with it. */
 function travel_owner_participant(string $privateDirectory):?string {

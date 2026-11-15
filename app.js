@@ -1798,8 +1798,8 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     if (islandViewer && mapOverlay === host && host.classList.contains('media-station-intro-map')) dialog.classList.add('has-slide-map');
     if (islandViewer && mapOverlay === host && host.classList.contains('media-slide-day-map') && !host.classList.contains('media-slide-day-map-full')) dialog.classList.add('has-day-map');
   };
-  // Island slideshows (app, website): the map is switched with the map button in the bottom bar; the choice is remembered.
-  if (islandViewer && !showMap) { try { showMap = localStorage.getItem('atlas-slideshow-map') === '1'; } catch {} }
+  // Island slideshows (app, website): the map comes as a glass window with the map button (0.4.2), never fixed.
+  if (islandViewer) showMap = false;
   const stopCurrentMedia = () => {
 
     if (currentMedia instanceof HTMLImageElement) currentMedia.onload = currentMedia.onerror = null;
@@ -1815,6 +1815,55 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     const copy = document.createElement('div'); copy.className = 'media-slide-story-copy'; copy.textContent = text; overlay.append(copy);
     if(text.trim()&&!className.includes('media-slide-end'))overlay.append(Object.assign(document.createElement('p'),{className:'media-reading-hint',textContent:'10 Sekunden Lesepause · Tippen zum längeren Lesen'}));
     dialog.append(overlay); return overlay;
+  };
+  // 0.4.2 (app and website): photos stay in the middle; the station text and the day map come as glass windows
+  // from the top. A window snaps to full, half (head line or map strip, stays until the next station) or gone; it
+  // leaves by itself after its time or when pushed up. A tap on the photo lets the slideshow go on meanwhile.
+  let textGlass = null, mapGlass = null, pendingDayInfo = null;
+  const glassStack = document.createElement('div'); glassStack.className = 'media-glass-stack';
+  const pullText = document.createElement('button'); pullText.type = 'button'; pullText.className = 'media-glass-pull'; pullText.textContent = '▾ Text zur Station'; pullText.hidden = true;
+  const updatePull = () => { pullText.hidden = !(textGlass && textGlass.state === 'hidden' && textGlass.inner.childElementCount && phase !== 'end'); };
+  const glassWindow = (label, halfPx, fullPx, { dragOnly = '', onRelease } = {}) => {
+    const el = document.createElement('section'); el.className = 'media-glass'; el.setAttribute('aria-label', label);
+    const inner = document.createElement('div'); inner.className = 'media-glass-inner';
+    const countdown = document.createElement('div'); countdown.className = 'media-glass-timer'; countdown.append(document.createElement('i'));
+    const grip = document.createElement('div'); grip.className = 'media-glass-grip'; grip.setAttribute('aria-hidden', 'true');
+    el.append(inner, countdown, grip);
+    const w = { el, inner, state: 'hidden', timer: null, total: 0 };
+    const full = () => Math.max(halfPx, typeof fullPx === 'function' ? fullPx(w) : fullPx);
+    w.apply = (reveal, animate) => {
+      el.classList.toggle('media-glass-animate', !!animate);
+      const r = Math.max(0, Math.min(full(), reveal));
+      if (r >= halfPx) { el.style.height = r + 'px'; el.style.transform = ''; el.style.opacity = ''; el.style.marginBottom = ''; }
+      else { el.style.height = halfPx + 'px'; el.style.transform = `translateY(${r - halfPx - 24}px)`; el.style.opacity = String(r / halfPx); el.style.marginBottom = (r - halfPx - 10) + 'px'; }
+      el.inert = r < 4; el.classList.toggle('media-glass-gone', r < 4);
+    };
+    w.reveal = () => w.state === 'full' ? full() : w.state === 'half' ? halfPx : 0;
+    w.set = (state, animate = true) => { w.state = state; el.dataset.state = state; w.apply(w.reveal(), animate); updatePull(); };
+    const runCountdown = ms => { const bar = countdown.firstChild; bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = ms ? `media-glass-countdown ${ms}ms linear forwards` : 'none'; };
+    w.open = ms => { clearTimeout(w.timer); w.total = ms; w.timer = ms ? setTimeout(() => w.close(true), ms) : null; runCountdown(ms); w.set('full'); };
+    w.close = timed => { clearTimeout(w.timer); w.timer = null; runCountdown(0); w.set('hidden'); onRelease?.('hidden', timed); };
+    w.half = () => { clearTimeout(w.timer); w.timer = null; runCountdown(0); w.set('half'); onRelease?.('half', false); };
+    let start = null;
+    el.addEventListener('pointerdown', event => {
+      if (dragOnly && !event.target.closest(dragOnly)) return;
+      start = { y: event.clientY, reveal: w.reveal(), t: performance.now(), moved: false };
+      try { el.setPointerCapture(event.pointerId); } catch {}
+    });
+    el.addEventListener('pointermove', event => { if (!start) return; const dy = event.clientY - start.y; if (Math.abs(dy) > 4) start.moved = true; if (start.moved) w.apply(start.reveal + dy, false); });
+    const end = event => {
+      if (!start) return;
+      const dy = event.clientY - start.y, speed = dy / Math.max(1, performance.now() - start.t), reveal = start.reveal + dy, moved = start.moved; start = null;
+      if (!moved) { w.apply(w.reveal(), true); return; }
+      suppressTapUntil = Date.now() + 400;
+      let target = reveal > (halfPx + full()) / 2 ? 'full' : reveal > halfPx / 2 ? 'half' : 'hidden';
+      if (speed < -.8) target = w.state === 'full' && reveal > halfPx ? 'half' : 'hidden';
+      if (speed > .8) target = 'full';
+      if (target === 'hidden') w.close(false); else if (target === 'half') w.half(); else if (w.state !== 'full') w.open(w.total || 10000); else w.set('full');
+    };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    w.set('hidden', false);
+    return w;
   };
   const toolbar = document.createElement('div'); toolbar.className = 'media-slide-controls';
   toolbar.hidden = true;
@@ -1838,7 +1887,8 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
   };
   dialog.addEventListener('click', event => {
     if (Date.now() < suppressTapUntil) return;
-    if(islandViewer&&!event.target.closest('button,input,textarea,select,a,summary,.leaflet-container,.apple-map-host,.media-playback-island,.media-slide-controls,.media-zoom-island')&&!event.target.closest('video')?.controls){playing=!playing;updatePlayback();setControlsVisible(true);}
+    // A tap while the station text waits lets the slideshow go on (the window stays until its time is up).
+    if(islandViewer&&!event.target.closest('button,input,textarea,select,a,summary,.leaflet-container,.apple-map-host,.media-playback-island,.media-slide-controls,.media-zoom-island,.media-glass')&&!event.target.closest('video')?.controls){if(phase==='station'){phase='media';playing=true;}else playing=!playing;updatePlayback();setControlsVisible(true);}
     if (!islandViewer && event.target.closest('.media-slide-viewport, .media-slide-story')) setControlsVisible(true);
     if (!toolbar.hidden) keepControlsVisible();
   });
@@ -1852,6 +1902,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
   const schedule = () => {
     clearTimer();
     if (!playing || !dialog.open || switchingPage) return;
+    if (islandViewer && phase === 'station') return; // the text window releases the reading pause itself
     if (phase !== 'media') { timer = setTimeout(advance, storyDuration); return; }
     if (currentMedia instanceof HTMLImageElement && currentMedia.complete && currentMedia.naturalWidth) timer = setTimeout(advance, photoSeconds*1000);
   };
@@ -1913,6 +1964,11 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
   control('+', () => { zoom = Math.min(4, zoom + .5); applyZoom(); }).setAttribute('aria-label', 'Hineinzoomen');
   dialog.append(toolbar);
   const mapToggle = control('🗺', () => {
+    if (islandViewer && mapGlass) {
+      if (mapGlass.state === 'hidden') { renderGlassMap(); mapGlass.open(10000); mapToggle.setAttribute('aria-pressed', 'true'); }
+      else mapGlass.close(false);
+      setControlsVisible(true); return;
+    }
     showMap = !showMap; mapToggle.setAttribute('aria-pressed', String(showMap)); mapToggle.setAttribute('aria-label', showMap ? 'Karte ausblenden' : 'Karte einblenden');
     if(islandViewer&&globalThis.ReiseIcons)ReiseIcons.apply(mapToggle,'map',showMap?'Karte ausblenden':'Karte einblenden');
     dialog.classList.toggle('media-map-enabled', showMap);
@@ -1970,8 +2026,8 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
       shareButton.onclick=()=>{playing=false;updatePlayback();keepControlsVisible();shareTrip(String(shareTripId)).catch(error=>alert(error.message));};
       playback.append(shareButton);
     }
-    // Map switch in the bottom bar (remembered); the bar height places the map directly on top of it.
-    mapToggle.addEventListener('click',()=>{try{localStorage.setItem('atlas-slideshow-map',showMap?'1':'0');}catch{}});
+    // Map button in the bottom bar: the day map slides in as a glass window from the top.
+    mapToggle.setAttribute('aria-pressed','false');if(globalThis.ReiseIcons)ReiseIcons.apply(mapToggle,'map','Tageskarte einblenden');else mapToggle.setAttribute('aria-label','Tageskarte einblenden');
     playback.append(mapToggle);
     // 0.4: "Übersicht" in the bar replaces the close button at the top: it ends the slideshow at the trip
     // overview of the day being shown (Esc on the computer and the back gesture on the iPhone still close it).
@@ -1985,6 +2041,46 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     if(typeof ResizeObserver==='function'){const watch=new ResizeObserver(barSpace);watch.observe(dialog);watch.observe(playback);dialog.addEventListener('close',()=>watch.disconnect());}
     requestAnimationFrame(barSpace);
     if(!toolbar.children.length)toolbar.classList.add('media-empty-toolbar');
+  }
+  // Glass windows (island slideshows): the station text waits for reading (10 s, without text 3 s) unless a tap lets
+  // the slideshow go on; the day map comes with the map button in the bar and leaves after 10 s.
+  const stationDateText = stop => {
+    const value = stopDay(stop?.starts_at), date = new Date(value + 'T12:00:00');
+    return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-AT', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date) : 'Ohne Aufnahmedatum';
+  };
+  const openStationText = (byHand = false) => {
+    const stop = currentStop; if (!stop || !textGlass) return;
+    const info = byHand ? textGlass.dayInfo : pendingDayInfo; pendingDayInfo = null; textGlass.dayInfo = info;
+    const eyebrow = document.createElement('p'); eyebrow.className = 'media-glass-eyebrow'; eyebrow.textContent = stationDateText(stop);
+    const title = document.createElement('h2'); title.textContent = stationLabel(stop);
+    textGlass.inner.replaceChildren(eyebrow, title);
+    const texts = [info?.text, stationText].map(value => String(value || '').trim()).filter(Boolean);
+    for (const value of texts) textGlass.inner.append(Object.assign(document.createElement('p'), { className: 'media-glass-text', textContent: value }));
+    const metrics = (info?.metrics || []).filter(Boolean);
+    if (metrics.length) { const row = document.createElement('div'); row.className = 'media-glass-metrics'; for (const value of metrics) row.append(Object.assign(document.createElement('span'), { textContent: value })); textGlass.inner.append(row); }
+    if (info?.weather) textGlass.inner.append(info.weather.cloneNode(true));
+    textGlass.open(texts.length ? 10000 : 3000);
+    if (!byHand) phase = 'station';
+    if (mapGlass && mapGlass.state !== 'hidden') renderGlassMap();
+  };
+  let glassMapHost = null;
+  const removeGlassMap = () => { glassMapHost?.stationMap?.remove?.(); glassMapHost?.stationMapNote?.remove(); glassMapHost?.remove(); glassMapHost = null; };
+  const renderGlassMap = () => {
+    if (!mapGlass || !currentStop) return;
+    removeGlassMap();
+    const head = document.createElement('p'); head.className = 'media-glass-title'; head.textContent = 'Tageskarte';
+    const host = document.createElement('div'); host.className = 'day-stations-map media-glass-map'; host.setAttribute('aria-label', 'Tageskarte mit Stationsmarker');
+    glassMapHost = host; mapGlass.inner.replaceChildren(head, host);
+    renderSlideshowStationMap(host, allStops.length ? allStops : [currentStop], currentStop, tripId, false);
+  };
+  if (islandViewer) {
+    textGlass = glassWindow('Text zur Station', 76, w => w.inner.scrollHeight + 2, { onRelease: () => { if (phase === 'station') { phase = 'media'; updatePlayback(); } } });
+    mapGlass = glassWindow('Tageskarte', 112, 300, { dragOnly: '.media-glass-title,.media-glass-grip,.media-glass-timer', onRelease: state => {
+      mapToggle.setAttribute('aria-pressed', String(state !== 'hidden'));
+      if (state === 'hidden') setTimeout(() => { if (mapGlass.state === 'hidden') removeGlassMap(); }, 450);
+    } });
+    glassStack.append(textGlass.el, mapGlass.el); dialog.append(glassStack, pullText);
+    pullText.onclick = () => openStationText(true);
   }
   const previous = document.createElement('button'), next = document.createElement('button');
   previous.className = 'media-lightbox-nav previous'; next.className = 'media-lightbox-nav next';
@@ -2001,7 +2097,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     const dayDate = pendingDayDate;
     const stationDate = pendingStationDate;
     const revealDayDate = () => {
-      if(stationText.trim()) { pendingDayDate=''; pendingStationDate=null; return; }
+      if(islandViewer||stationText.trim()) { pendingDayDate=''; pendingStationDate=null; return; } // island: date is in the text window
       if ((!dayDate && !stationDate) || figure.querySelector('.media-day-date')) return;
       const dateValue = dayDate || stopDay(stationDate?.starts_at);
       const date = new Date(dateValue + 'T12:00:00');
@@ -2065,7 +2161,8 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     caption.textContent = (data.name || (data.type === 'video' ? 'Reisevideo' : 'Reiseaufnahme')) + ' · ' + (index + 1) + '/' + items.length;
     figure.append(caption); dialog.append(figure);
     if (data.type === 'video' || currentMedia.complete && currentMedia.naturalWidth) revealDayDate();
-    if ((index === 0 || stationIntro) && currentStop && (stationText.trim() || showMap)) {
+    if (islandViewer) { if ((index === 0 || stationIntro) && currentStop) openStationText(); }
+    else if ((index === 0 || stationIntro) && currentStop && (stationText.trim() || showMap)) {
       const panel = textOverlay(stationText || '', `media-station-intro${stationText.trim() ? '' : ' media-station-map-only'}`);
       const title = document.createElement('h2'); title.textContent = stationLabel(currentStop); panel.append(title);
 
@@ -2117,7 +2214,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     show(entryIndex, stationIntro);
   };
   const showEnd = () => {
-    phase = 'end'; storyDuration = 10000; clearTimer(); stopCurrentMedia(); textOverlay('ENDE', 'media-slide-end');
+    phase = 'end'; storyDuration = 10000; clearTimer(); stopCurrentMedia(); if (textGlass?.state !== 'hidden') textGlass?.close(true); if (mapGlass?.state !== 'hidden') mapGlass?.close(true); textOverlay('ENDE', 'media-slide-end');
     previous.disabled = false; next.disabled = true; next.hidden = !islandViewer; updatePlayback();
   };
   const showDay = async (day, stop, media, entryIndex = 0) => {
@@ -2134,6 +2231,21 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     const [summary, weather] = await Promise.all([request('day-summary'), request('day-weather')]);
     if (!dialog.open) return;
     dayStepLabels.set(day,journeyStepLabel(summary));
+    // 0.4.2 (island): no separate day page; the day text, distance, steps and weather join the first station's
+    // text window and the photos start right away.
+    if (islandViewer) {
+      let weatherValues = null;
+      if (weather.available) {
+        weatherValues = document.createElement('div'); weatherValues.className = 'day-weather-values';
+        const number = value => new Intl.NumberFormat(globalThis.ReiseI18n?.language==='en'?'en-GB':'de-DE',{maximumFractionDigits:0}).format(value);
+        for (const [kind, value, label] of [['temperature', weather.temperature_min != null && weather.temperature_max != null ? number(weather.temperature_min) + '–' + number(weather.temperature_max) + ' °C' : '–', 'Temperatur'], ['elevation', weather.elevation != null ? number(weather.elevation) + ' m' : '–', 'Meereshöhe']]) {
+          const entry = document.createElement('div'), text = document.createElement('strong'); text.textContent = value; entry.title = label; entry.append(dayWeatherIcon(kind), text); weatherValues.append(entry);
+        }
+        const icon = dayWeatherIcon(weather.weather_code); icon.setAttribute('aria-label', dayWeatherSymbol(weather.weather_code)[1]); weatherValues.append(icon);
+      }
+      pendingDayInfo = { text: String(summary.summary || ''), metrics: [journeyDayDistance(allStops, day), journeyStepLabel(summary)], weather: weatherValues };
+      removeOverlay(); switchingPage = false; enterStation(stop, media, entryIndex, true); return;
+    }
     const hasDayText = Boolean(String(summary.summary || '').trim()); dayHasText = hasDayText;
     storyDuration = hasDayText ? 10000 : 3000;
     if(hasDayText)pendingDayDate = '';
@@ -2197,7 +2309,9 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     if (switchingPage || !dialog.open) return;
     if (phase === 'end') { dialog.close(); return; }
     if (phase === 'day') { enterStation(dayFirstStop, dayFirstMedia, dayEntryIndex, true); return; }
-    if (phase === 'station') {
+    // Island: swiping on while the station text waits goes to the next photo and lets the text window leave.
+    if (phase === 'station' && islandViewer) { phase = 'media'; textGlass?.close(true); }
+    else if (phase === 'station') {
       removeOverlay(); phase = 'media';
       refreshMap();
       // Reading time is additional: resume the first photo/video afterwards.
@@ -2301,6 +2415,7 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     clearTimer();
     stopCurrentMedia();
     removeOverlay();
+    clearTimeout(textGlass?.timer); clearTimeout(mapGlass?.timer); removeGlassMap();
     clearTimeout(controlsTimer);
     if (currentMedia instanceof HTMLVideoElement) { currentMedia.onended = currentMedia.onplay = currentMedia.onpause = null; }
     currentMedia?.pause?.();
