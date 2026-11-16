@@ -42,8 +42,12 @@ function travel_recording_trips(string $privateDirectory):array {
 // 0.4.2: photos a few minutes before the start or after the end still belong to the recording (same margin as the app,
 // RecordingRange.Margin): the first photo is often taken just before tapping "Reise starten".
 const TRAVEL_RECORDING_MARGIN=600;
+// 0.4.2: a finished recording under 30 minutes is not processed (mostly started by mistake); the app lists these
+// once a week for deleting. A running recording forms its trip only once it is 30 minutes old (see run()).
+const TRAVEL_RECORDING_MIN=1800;
+function travel_recording_short(array $r):bool {return $r['until']!==null&&$r['until']-$r['from']<TRAVEL_RECORDING_MIN;}
 function travel_recording_for(array $recordings,int $capture):?array {
-    foreach($recordings as $r)if($capture>=$r['from']-TRAVEL_RECORDING_MARGIN&&($r['until']===null||$capture<=$r['until']+TRAVEL_RECORDING_MARGIN))return $r;return null;
+    foreach($recordings as $r)if(!travel_recording_short($r)&&$capture>=$r['from']-TRAVEL_RECORDING_MARGIN&&($r['until']===null||$capture<=$r['until']+TRAVEL_RECORDING_MARGIN))return $r;return null;
 }
 /** Participant name of the automation owner (as set in the app); new automatic trips start with it. */
 function travel_owner_participant(string $privateDirectory):?string {
@@ -60,12 +64,17 @@ function travel_owner_participant_save(string $privateDirectory,mixed $name):voi
     if(travel_owner_participant($privateDirectory)!==$name)travel_save($privateDirectory.'/participant.json',['name'=>$name]);
 }
 /** Start (only one at a time) or stop the recording; returns the updated list. */
-function travel_recording_change(string $privateDirectory,string $mode,int $now,string $timezone):array {
+function travel_recording_change(string $privateDirectory,string $mode,int $now,string $timezone,?int $from=null):array {
     $recordings=travel_recordings($privateDirectory);
     if($mode==='start'&&travel_recording_active($recordings)===null){
         try{$day=(new DateTimeImmutable('@'.$now))->setTimezone(new DateTimeZone($timezone))->format('d.m.Y');}catch(Exception){$day=gmdate('d.m.Y',$now);}
         $recordings[]=['id'=>bin2hex(random_bytes(16)),'from'=>$now,'until'=>null,'title'=>'Reise ab '.$day];
     }elseif($mode==='stop'){foreach($recordings as &$r)if($r['until']===null)$r['until']=$now;unset($r);}
+    elseif($mode==='delete'){
+        // Deleting is only for short recordings (weekly overview in the app), found by their start (app and server clocks).
+        if($from===null)throw new InvalidArgumentException('invalid_recording_mode');
+        $recordings=array_values(array_filter($recordings,static fn($r)=>!(travel_recording_short($r)&&abs($r['from']-$from)<=300)));
+    }
     elseif($mode!=='start')throw new InvalidArgumentException('invalid_recording_mode');
     travel_save($privateDirectory.'/recordings.json',array_slice($recordings,-50));
     return $recordings;
@@ -184,13 +193,13 @@ final class TravelAutomationRunner {
                             $decision=travel_classify($m,$s);$stamp=$decision['capture']??null;
                             // Inside a trip recording a capture at home is a journey capture like any other.
                             $recording=$stamp!==null?travel_recording_for($recordings,$stamp):null;
-                            if($recording!==null&&$decision['outcome']==='home')$decision['outcome']='away';
+                            $homeInRecording=$recording!==null&&$decision['outcome']==='home';if($homeInRecording)$decision['outcome']='away';
                             if(($decision['captureSource']??null)==='file-created'){$m['takenAt']=gmdate('Y-m-d\TH:i:s\Z',$stamp);$m['captureSource']='file-created';}
                             $state['seen'][$id]=['name'=>$item['name'],'version'=>$version,'rules'=>$rules,'review'=>$decision['outcome']==='review','reason'=>$decision['reason'],'retryAfter'=>$now->getTimestamp()+86400,'media'=>$captured,'place'=>$read['place']??'Reise'];
                             $skipped=$stamp!==null&&($s['backfillUntil']??null)!==null&&$stamp>=travel_timestamp($s['backfillUntil'])&&$stamp<(int)$state['activatedAt'];
                             if($stamp!==null&&!$skipped&&$stamp>=$window['from']&&$stamp<$window['until']&&in_array($decision['outcome'],['home','away','timed'],true)){
                                 $extension=strtolower(pathinfo($item['name'],PATHINFO_EXTENSION));if(!preg_match('/^[a-z0-9]{1,10}$/D',$extension))throw new RuntimeException('invalid_media_extension');
-                                $state['events'][$id]=['outcome'=>$decision['outcome'],'capture'=>$stamp,'media'=>$m,'chain'=>$read['chain'],'place'=>$read['place']??'Reise','extension'=>$extension,'sourceFolder'=>$s['sourceFolder'],'storageMode'=>'reference']+($recording!==null?['recording'=>$recording['id']]:[]);
+                                $state['events'][$id]=['outcome'=>$decision['outcome'],'capture'=>$stamp,'media'=>$m,'chain'=>$read['chain'],'place'=>$read['place']??'Reise','extension'=>$extension,'sourceFolder'=>$s['sourceFolder'],'storageMode'=>'reference']+($recording!==null?['recording'=>$recording['id']]+($homeInRecording?['homeInRecording'=>true]:[]):[]);
                                 $result[['home'=>'homeCaptures','timed'=>'timed'][$decision['outcome']]??'candidates']++;
                             }elseif($stamp!==null&&$stamp>=$window['until'])$state['seen'][$id]['retryAfter']=$window['next'];
                         }
@@ -202,8 +211,23 @@ final class TravelAutomationRunner {
         $persist();
         if(!$scan&&!$blocked){
             // Captures of a trip recording form that recording's trip directly; the usual planning sees only the rest.
-            $recorded=array_filter($state['events'],static fn($e)=>isset($e['recording']));
-            $plan=travel_plan(array_diff_key($state['events'],$recorded),$state['trips'],['quietDays'=>$s['quietDays'],'homeBreakHours'=>$s['homeBreakHours']]);
+            // 0.4.2: a running recording waits until it is 30 minutes old; a finished short or deleted one gives its
+            // captures back to the usual planning (a capture at home counts as home again).
+            $byRecording=array_column($recordings,null,'id');$waiting=[];
+            // Captures stored before a recording rule applied to them (e.g. seconds before the start, before the 10-minute
+            // margin existed) and not yet in a trip join the recording now; they are never read again otherwise.
+            foreach($state['events'] as $id=>$e){
+                if(isset($e['recording'])||isset($state['jobs'][$id])||!is_int($e['capture']??null))continue;
+                $r=travel_recording_for($recordings,$e['capture']);if($r===null)continue;
+                $state['events'][$id]['recording']=$r['id'];if($e['outcome']==='home'){$state['events'][$id]['outcome']='away';$state['events'][$id]['homeInRecording']=true;}
+            }
+            foreach($state['events'] as $id=>$e){
+                if(!isset($e['recording'])||isset($state['jobs'][$id]))continue;$r=$byRecording[$e['recording']]??null;
+                if($r!==null&&$r['until']===null&&$now->getTimestamp()-$r['from']<TRAVEL_RECORDING_MIN){$waiting[$id]=true;continue;}
+                if($r===null||travel_recording_short($r)){unset($state['events'][$id]['recording']);if(!empty($e['homeInRecording']))$state['events'][$id]['outcome']='home';unset($state['events'][$id]['homeInRecording']);}
+            }
+            $recorded=array_filter($state['events'],static fn($e,$id)=>isset($e['recording'])&&!isset($waiting[$id]),ARRAY_FILTER_USE_BOTH);
+            $plan=travel_plan(array_diff_key($state['events'],$recorded,$waiting),$state['trips'],['quietDays'=>$s['quietDays'],'homeBreakHours'=>$s['homeBreakHours']]);
             $titles=array_column($recordings,'title','id');
             foreach($recorded as $id=>$event){
                 $rid=$event['recording'];$tripId=$state['recordingTrips'][$rid]??null;

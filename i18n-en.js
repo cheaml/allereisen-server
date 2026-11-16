@@ -197,7 +197,7 @@ window.ReiseI18n?.register({
     'Tageskarte einblenden': 'Show day map',
     'Tageskarte': 'Day map',
     'Text zur Station': 'Text about the stop',
-    '▾ Text zur Station': '▾ Text about the stop',
+    'Text zur Station einblenden': 'Show the text about the stop',
     'Bearbeiten einschalten': 'Turn on editing',
     'Bearbeiten ausschalten': 'Turn off editing',
     'Bearbeitungsmodus': 'Editing mode',

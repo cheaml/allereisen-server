@@ -1821,14 +1821,13 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
   // leaves by itself after its time or when pushed up. A tap on the photo lets the slideshow go on meanwhile.
   let textGlass = null, mapGlass = null, pendingDayInfo = null;
   const glassStack = document.createElement('div'); glassStack.className = 'media-glass-stack';
-  const pullText = document.createElement('button'); pullText.type = 'button'; pullText.className = 'media-glass-pull'; pullText.textContent = '▾ Text zur Station'; pullText.hidden = true;
+  const pullText = document.createElement('button'); pullText.type = 'button'; pullText.className = 'media-glass-pull'; pullText.setAttribute('aria-label', 'Text zur Station einblenden'); pullText.title = 'Text zur Station einblenden'; pullText.hidden = true;
   const updatePull = () => { pullText.hidden = !(textGlass && textGlass.state === 'hidden' && textGlass.inner.childElementCount && phase !== 'end'); };
   const glassWindow = (label, halfPx, fullPx, { dragOnly = '', onRelease } = {}) => {
     const el = document.createElement('section'); el.className = 'media-glass'; el.setAttribute('aria-label', label);
     const inner = document.createElement('div'); inner.className = 'media-glass-inner';
-    const countdown = document.createElement('div'); countdown.className = 'media-glass-timer'; countdown.append(document.createElement('i'));
     const grip = document.createElement('div'); grip.className = 'media-glass-grip'; grip.setAttribute('aria-hidden', 'true');
-    el.append(inner, countdown, grip);
+    el.append(inner, grip);
     const w = { el, inner, state: 'hidden', timer: null, total: 0 };
     const full = () => Math.max(halfPx, typeof fullPx === 'function' ? fullPx(w) : fullPx);
     w.apply = (reveal, animate) => {
@@ -1840,10 +1839,9 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     };
     w.reveal = () => w.state === 'full' ? full() : w.state === 'half' ? halfPx : 0;
     w.set = (state, animate = true) => { w.state = state; el.dataset.state = state; w.apply(w.reveal(), animate); updatePull(); };
-    const runCountdown = ms => { const bar = countdown.firstChild; bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = ms ? `media-glass-countdown ${ms}ms linear forwards` : 'none'; };
-    w.open = ms => { clearTimeout(w.timer); w.total = ms; w.timer = ms ? setTimeout(() => w.close(true), ms) : null; runCountdown(ms); w.set('full'); };
-    w.close = timed => { clearTimeout(w.timer); w.timer = null; runCountdown(0); w.set('hidden'); onRelease?.('hidden', timed); };
-    w.half = () => { clearTimeout(w.timer); w.timer = null; runCountdown(0); w.set('half'); onRelease?.('half', false); };
+    w.open = ms => { clearTimeout(w.timer); w.total = ms; w.timer = ms ? setTimeout(() => w.close(true), ms) : null; w.set('full'); };
+    w.close = timed => { clearTimeout(w.timer); w.timer = null; w.set('hidden'); onRelease?.('hidden', timed); };
+    w.half = () => { clearTimeout(w.timer); w.timer = null; w.set('half'); onRelease?.('half', false); };
     let start = null;
     el.addEventListener('pointerdown', event => {
       if (dragOnly && !event.target.closest(dragOnly)) return;
@@ -2059,12 +2057,16 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     const metrics = (info?.metrics || []).filter(Boolean);
     if (metrics.length) { const row = document.createElement('div'); row.className = 'media-glass-metrics'; for (const value of metrics) row.append(Object.assign(document.createElement('span'), { textContent: value })); textGlass.inner.append(row); }
     if (info?.weather) textGlass.inner.append(info.weather.cloneNode(true));
-    textGlass.open(texts.length ? 10000 : 3000);
-    if (!byHand) phase = 'station';
-    if (mapGlass && mapGlass.state !== 'hidden') renderGlassMap();
+    // Only an own text (day or station) makes the slideshow wait for reading; otherwise the window just passes by.
+    const shownFor = texts.length ? 10000 : info ? 6000 : 3000;
+    textGlass.open(shownFor);
+    if (!byHand && texts.length) phase = 'station';
+    // A new day brings its day map with the routes along (same time as the text); otherwise an open map follows the station.
+    if (mapGlass && info && !byHand) { renderGlassMap(); mapGlass.open(shownFor); mapToggle.setAttribute('aria-pressed', 'true'); }
+    else if (mapGlass && mapGlass.state !== 'hidden') renderGlassMap();
   };
   let glassMapHost = null;
-  const removeGlassMap = () => { glassMapHost?.stationMap?.remove?.(); glassMapHost?.stationMapNote?.remove(); glassMapHost?.remove(); glassMapHost = null; };
+  const removeGlassMap = () => { glassMapHost?.sizeWatch?.disconnect(); glassMapHost?.stationMap?.remove?.(); glassMapHost?.stationMapNote?.remove(); glassMapHost?.remove(); glassMapHost = null; };
   const renderGlassMap = () => {
     if (!mapGlass || !currentStop) return;
     removeGlassMap();
@@ -2072,15 +2074,20 @@ function openMediaLightbox(items, initialIndex, { nextStationIds = [], nextDay =
     const host = document.createElement('div'); host.className = 'day-stations-map media-glass-map'; host.setAttribute('aria-label', 'Tageskarte mit Stationsmarker');
     glassMapHost = host; mapGlass.inner.replaceChildren(head, host);
     renderSlideshowStationMap(host, allStops.length ? allStops : [currentStop], currentStop, tripId, false);
+    // The window grows and shrinks (slide in, half, full): the map follows its size.
+    if (typeof ResizeObserver === 'function') { const watch = new ResizeObserver(() => host.stationMap?.invalidateSize?.()); watch.observe(host); host.sizeWatch = watch; }
   };
   if (islandViewer) {
     textGlass = glassWindow('Text zur Station', 76, w => w.inner.scrollHeight + 2, { onRelease: () => { if (phase === 'station') { phase = 'media'; updatePlayback(); } } });
-    mapGlass = glassWindow('Tageskarte', 112, 300, { dragOnly: '.media-glass-title,.media-glass-grip,.media-glass-timer', onRelease: state => {
+    mapGlass = glassWindow('Tageskarte', 136, 320, { dragOnly: '.media-glass-title,.media-glass-grip', onRelease: state => {
       mapToggle.setAttribute('aria-pressed', String(state !== 'hidden'));
       if (state === 'hidden') setTimeout(() => { if (mapGlass.state === 'hidden') removeGlassMap(); }, 450);
     } });
     glassStack.append(textGlass.el, mapGlass.el); dialog.append(glassStack, pullText);
     pullText.onclick = () => openStationText(true);
+    let pullStart = null;
+    pullText.addEventListener('pointerdown', event => { pullStart = event.clientY; try { pullText.setPointerCapture(event.pointerId); } catch {} });
+    pullText.addEventListener('pointerup', event => { if (pullStart !== null && event.clientY - pullStart > 20) { suppressTapUntil = Date.now() + 400; openStationText(true); } pullStart = null; });
   }
   const previous = document.createElement('button'), next = document.createElement('button');
   previous.className = 'media-lightbox-nav previous'; next.className = 'media-lightbox-nav next';
@@ -2628,7 +2635,7 @@ function mountWorldRecordingButton(bar) {
   };
   refresh();
   // Finished recordings without a trip yet: offered when the world map opens (at most every ten minutes).
-  ReiseRecording.offer?.({ go });
+  ReiseRecording.offer?.({ go }).then(shown => { if (shown !== true) ReiseRecording.shortReview?.({ go }); }).catch(() => {});
 }
 function renderArchiveConnectionStatus(page, rows, open) {
   const card=document.createElement('section');card.className='archive-connection-status';card.setAttribute('aria-label','Anmeldung und Verbindungen');
@@ -2958,6 +2965,13 @@ const stationDotColor=line=>{const m=/^#([0-9a-f]{6})$/i.exec(line||'');if(!m)re
 // whatever filter is active (before, the colour followed the trip's position in the visible list).
 const tripRouteColor=tripId=>{let hash=2166136261;for(const char of String(tripId??''))hash=Math.imul(hash^char.codePointAt(0),16777619)>>>0;return worldRouteColors[hash%worldRouteColors.length];};
 const worldTripColor=(stops,tripId)=>tripRouteColor(tripId);
+// 0.4.2: home for the world map overview: the home place of the own travel automation (else the map takes the place
+// where most trips start). Asked once per app start.
+let worldHomePromise=null;
+function worldHome(){
+  worldHomePromise??=(async()=>{try{const reply=await window.ReiseNative?.request?.('websiteRecording',{});const home=reply?.home;return Number.isFinite(home?.latitude)&&Number.isFinite(home?.longitude)?{latitude:home.latitude,longitude:home.longitude}:null;}catch{worldHomePromise=null;return null;}})();
+  return worldHomePromise;
+}
 async function renderAppleWorldMap(node, allStops) {
   const located = allStops.filter(dayStationCoordinates);
   const years = TripSearch.years(remoteTrips).length?TripSearch.years(remoteTrips):[...new Set(located.map(stop=>String(stop.trip_starts_on||stop.starts_at||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
@@ -2974,9 +2988,10 @@ async function renderAppleWorldMap(node, allStops) {
       if(version!==generation || !node.isConnected)return;
       const stops = located.filter(stop => focusTrip ? String(stop.trip_id) === String(focusTrip) : worldTripMatches(stop,{...TripSearch.get('map'),year:select.value}));
       updateWorldSearchStatus(node,stops,focusTrip);
-      const markers = stops.map(stop => ({ id: String(stop.id), title: `${stop.trip_title || 'Reise'} · ${stationLabel(stop)}`, number: stop.stationNumber, latitude: Number(stop.latitude), longitude: Number(stop.longitude), tripId: stop.trip_id, mediaId: stop.preview_id || '', color: stationDotColor(worldTripColor(stops, stop.trip_id)) }));
-      if(current && !current.removed)await current.setMarkers(markers);
-      else current=await window.ReiseAppleMaps.mount(node,{world:true,markers});
+      const markers = stops.map(stop => ({ id: String(stop.id), title: `${stop.trip_title || 'Reise'} · ${stationLabel(stop)}`, tripTitle: stop.trip_title || 'Reise', number: stop.stationNumber, latitude: Number(stop.latitude), longitude: Number(stop.longitude), tripId: stop.trip_id, mediaId: stop.preview_id || '', color: stationDotColor(worldTripColor(stops, stop.trip_id)) }));
+      const home=await worldHome();
+      if(current && !current.removed)await current.setMarkers(markers,'',home);
+      else current=await window.ReiseAppleMaps.mount(node,{world:true,markers,home});
       const map=current;
       if(!map || version!==generation || !node.isConnected)return;
       if (!map.worldRouteRefreshInstalled) {

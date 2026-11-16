@@ -187,7 +187,7 @@ if($action==='travel-recording'&&in_array($_SERVER['REQUEST_METHOD'],['GET','POS
     $private=travel_private_directory($path,(string)$settings['ownerEmail']);
     if($_SERVER['REQUEST_METHOD']==='POST'){
         try{if(isset($input['participant']))travel_owner_participant_save($private,$input['participant']);
-            $mode=(string)($input['mode']??'');$recordings=$mode==='participant'?travel_recordings($private):travel_recording_change($private,$mode,time(),(string)($settings['timezone']??'Europe/Vienna'));}
+            $mode=(string)($input['mode']??'');$recordings=$mode==='participant'?travel_recordings($private):travel_recording_change($private,$mode,time(),(string)($settings['timezone']??'Europe/Vienna'),is_int($input['from']??null)?$input['from']:null);}
         catch(InvalidArgumentException){json(['error'=>'Ungültige Aufzeichnung.'],422);}
         catch(Throwable){json(['error'=>'Die Aufzeichnung konnte am Server nicht gespeichert werden.'],500);}
     }else $recordings=travel_recordings($private);
@@ -200,7 +200,9 @@ if($action==='travel-recording'&&in_array($_SERVER['REQUEST_METHOD'],['GET','POS
     if($made){$ids=array_values(array_unique($made));$q=$db->prepare('SELECT id FROM trips WHERE id IN ('.implode(',',array_fill(0,count($ids),'?')).')');$q->execute($ids);
         $alive=array_flip($q->fetchAll(PDO::FETCH_COLUMN));$made=array_filter($made,static fn($trip)=>isset($alive[$trip]));}
     $list=array_map(static fn($r)=>['id'=>$r['id'],'title'=>$r['title'],'from'=>$r['from'],'until'=>$r['until'],'tripId'=>$made[$r['id']]??null,'handled'=>isset($handled[$r['id']])],array_slice($recordings,-20));
-    json(['available'=>true,'active'=>$active!==null,'recording'=>$latest===null?null:['id'=>$latest['id'],'title'=>$latest['title'],'from'=>gmdate(DATE_ATOM,$latest['from']),'until'=>$latest['until']===null?null:gmdate(DATE_ATOM,$latest['until'])],'recordings'=>$list]);
+    // 0.4.2: the home place of the automation (only for its owner): the app's world map measures the trips from there.
+    $home=is_numeric($settings['latitude']??null)&&is_numeric($settings['longitude']??null)?['latitude'=>(float)$settings['latitude'],'longitude'=>(float)$settings['longitude']]:null;
+    json(['available'=>true,'home'=>$home,'active'=>$active!==null,'recording'=>$latest===null?null:['id'=>$latest['id'],'title'=>$latest['title'],'from'=>gmdate(DATE_ATOM,$latest['from']),'until'=>$latest['until']===null?null:gmdate(DATE_ATOM,$latest['until'])],'recordings'=>$list]);
 }
 if($action==='administration') {
     require_once __DIR__.'/device-sync-admin.php';
