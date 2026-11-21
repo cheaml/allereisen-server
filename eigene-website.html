@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eigene Website · AlleReisen</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><a class="brand" href="./">AlleReisen</a>
+<nav aria-label="Seiten"><a href="./">Start</a><a href="support.html">Hilfe &amp; Kontakt</a><a href="datenschutz.html">Datenschutz</a><a href="eigene-website.html" aria-current="page">Eigene Website</a><a href="en/own-website.html" lang="en">English</a></nav></header>
+<main>
+<h1>Eine eigene AlleReisen-Website</h1>
+<p>Die App funktioniert vollständig ohne Website. Eine eigene Website ist ein Zusatz – für alle, die Reisen mit Familie und Freunden teilen oder auf mehreren Geräten bearbeiten möchten.</p>
+
+<div class="card">
+<p style="margin-top:0"><strong>Schon eine Website in der Familie?</strong> Dann musst du nichts einrichten. Bitte die Person, die sie betreibt, dich als Mitglied einzutragen, und verbinde dich in der App unter <em>Einstellungen → Anmeldung &amp; Verbindungen → „Mit meiner Website verbinden“</em> mit ihrer Adresse.</p>
+</div>
+
+<h2>Was bringt eine eigene Website?</h2>
+<ul>
+<li><strong>Teilen:</strong> Familie und Freunde sehen deine Reisen im Browser oder in ihrer App – auch Gäste per Einladungslink.</li>
+<li><strong>Mehrere Geräte:</strong> Eine Reise, auf iPhone, iPad und im Browser bearbeitbar; Änderungen gleichen sich von selbst ab.</li>
+<li><strong>Sicherung:</strong> Texte, Stationen und Strecken liegen zusätzlich auf deiner Website, mit Sicherungen vor jeder Änderung.</li>
+<li><strong>Reise-Automatik (optional):</strong> Neue Fotos aus OneDrive werden auf Wunsch von selbst zu Reisen.</li>
+</ul>
+
+<h2>Wo bleiben meine Fotos?</h2>
+<p>Deine Originalfotos und -videos bleiben in OneDrive. Die Website speichert nur Texte, Stationen, Strecken und kleine Vorschaubilder. Die Website gehört dir: Sie läuft auf deinem eigenen Webhosting, nicht bei uns. Wir betreiben keine Server für Nutzerinnen und Nutzer und sehen deine Daten nicht.</p>
+
+<h2>Was brauche ich?</h2>
+<ul>
+<li><strong>Webhosting mit PHP und MySQL/MariaDB</strong> – das bieten die meisten üblichen Hosting-Pakete an (PHP 8.3 oder neuer, MySQL 8 oder MariaDB 10.11 oder neuer).</li>
+<li><strong>Eine eigene Adresse mit HTTPS</strong>, zum Beispiel <em>reisen.deine-domain.at</em>. Bei vielen Anbietern ist das Zertifikat kostenlos dabei.</li>
+<li><strong>Ein Microsoft-Konto</strong> und eine kostenlose <strong>App-Registrierung bei Microsoft</strong>. Darüber melden sich alle an, und die Website darf die Fotos in OneDrive lesen. Die Anleitung erklärt jeden Schritt.</li>
+<li><strong>Etwas Erfahrung</strong> mit dem Hochladen von Dateien und dem Anlegen einer Datenbank (zum Beispiel über phpMyAdmin im Kundenbereich deines Hosters). Wenn dir das fremd ist, frag jemanden aus Familie oder Freundeskreis, der Websites betreut.</li>
+</ul>
+
+<h2>Was kostet es, wie lange dauert es?</h2>
+<p>AlleReisen selbst ist kostenlos und quelloffen. Es fallen nur die Kosten deines Webhostings an – je nach Anbieter einige Euro im Monat; oft passt die Website auch in ein bestehendes Paket. Für die Einrichtung solltest du ein bis zwei Stunden einplanen.</p>
+
+<h2>Der Ablauf in groben Schritten</h2>
+<ol>
+<li>Adresse (Subdomain mit HTTPS) und eine leere Datenbank bei deinem Hoster anlegen.</li>
+<li>Das Serverpaket von GitHub herunterladen und die Dateien hochladen.</li>
+<li>Die Datenbank-Vorlage importieren und die Einstellungsdatei ausfüllen (Datenbank, Adresse, deine E-Mail als Administrator).</li>
+<li>Bei Microsoft eine App registrieren und deren Kennung in die Einstellungsdatei eintragen.</li>
+<li>Im Browser anmelden, eine kleine Testreise importieren – fertig.</li>
+</ol>
+<p>Danach verbindest du die App: <em>Einstellungen → Anmeldung &amp; Verbindungen → „Mit meiner Website verbinden“</em>, Adresse eingeben, mit Microsoft anmelden.</p>
+
+<div class="card">
+<p style="margin-top:0"><strong>Zur ausführlichen Anleitung:</strong> <a href="https://github.com/cheaml/allereisen-server/blob/main/docs/INSTALLATION.md">Installation auf GitHub</a> (technisch, auf Deutsch) · <a href="https://github.com/cheaml/allereisen-server">Serverpaket und Code</a></p>
+<p style="margin-bottom:0" class="meta">Fragen? Schreib an <a href="mailto:hilfe@fairhandeln.at">hilfe@fairhandeln.at</a>.</p>
+</div>
+</main>
+<footer>AlleReisen · Andreas M. Leber · <a href="datenschutz.html">Datenschutz</a> · <a href="./">Start</a></footer>
+</body>
+</html>

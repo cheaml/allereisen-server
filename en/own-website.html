@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Own website · AlleReisen</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header><a class="brand" href="./">AlleReisen</a>
+<nav aria-label="Pages"><a href="./">Home</a><a href="support.html">Help &amp; contact</a><a href="privacy.html">Privacy</a><a href="own-website.html" aria-current="page">Own website</a><a href="../eigene-website.html" lang="de">Deutsch</a></nav></header>
+<main>
+<h1>Your own AlleReisen website</h1>
+<p>The app works fully without a website. An own website is an extra – for everyone who wants to share trips with family and friends or edit them on several devices.</p>
+
+<div class="card">
+<p style="margin-top:0"><strong>Someone in your family already runs one?</strong> Then there is nothing to set up. Ask the person who runs it to add you as a member, and connect in the app under <em>Settings → Sign-in &amp; connections → “Connect to my website”</em> with its address.</p>
+</div>
+
+<h2>What does an own website add?</h2>
+<ul>
+<li><strong>Sharing:</strong> family and friends see your trips in the browser or in their app – guests too, with an invitation link.</li>
+<li><strong>Several devices:</strong> one trip, editable on iPhone, iPad and in the browser; changes sync by themselves.</li>
+<li><strong>Backup:</strong> texts, stops and routes are also kept on your website, with a backup before each change.</li>
+<li><strong>Trip automation (optional):</strong> new photos in OneDrive can become trips by themselves.</li>
+</ul>
+
+<h2>Where do my photos stay?</h2>
+<p>Your original photos and videos stay in OneDrive. The website only stores texts, stops, routes and small preview images. The website is yours: it runs on your own web hosting, not with us. We run no servers for users and do not see your data.</p>
+
+<h2>What do I need?</h2>
+<ul>
+<li><strong>Web hosting with PHP and MySQL/MariaDB</strong> – most common hosting packages offer this (PHP 8.3 or newer, MySQL 8 or MariaDB 10.11 or newer).</li>
+<li><strong>An own address with HTTPS</strong>, for example <em>trips.your-domain.com</em>. Many providers include the certificate for free.</li>
+<li><strong>A Microsoft account</strong> and a free <strong>app registration with Microsoft</strong>. Everyone signs in through it, and the website may read the photos in OneDrive. The guide explains every step.</li>
+<li><strong>Some experience</strong> with uploading files and creating a database (for example with phpMyAdmin in your hosting control panel). If this is new to you, ask someone among family or friends who looks after websites.</li>
+</ul>
+
+<h2>What does it cost, how long does it take?</h2>
+<p>AlleReisen itself is free and open source. You only pay for your web hosting – depending on the provider a few euros a month; often the website also fits into an existing package. Plan one to two hours for the setup.</p>
+
+<h2>The steps in short</h2>
+<ol>
+<li>Create an address (subdomain with HTTPS) and an empty database with your hosting provider.</li>
+<li>Download the server package from GitHub and upload the files.</li>
+<li>Import the database template and fill in the settings file (database, address, your e-mail as administrator).</li>
+<li>Register an app with Microsoft and enter its ID in the settings file.</li>
+<li>Sign in in the browser, import a small test trip – done.</li>
+</ol>
+<p>Then connect the app: <em>Settings → Sign-in &amp; connections → “Connect to my website”</em>, enter the address, sign in with Microsoft.</p>
+
+<div class="card">
+<p style="margin-top:0"><strong>Detailed guide:</strong> <a href="https://github.com/cheaml/allereisen-server/blob/main/docs/INSTALLATION.md">Installation on GitHub</a> (technical, in German – a browser translation works well) · <a href="https://github.com/cheaml/allereisen-server">Server package and code</a></p>
+<p style="margin-bottom:0" class="meta">Questions? Write to <a href="mailto:hilfe@fairhandeln.at">hilfe@fairhandeln.at</a>.</p>
+</div>
+</main>
+<footer>AlleReisen · Andreas M. Leber · <a href="privacy.html">Privacy</a> · <a href="./">Home</a></footer>
+</body>
+</html>
